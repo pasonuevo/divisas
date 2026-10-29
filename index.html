@@ -383,7 +383,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (9): comisión al transferir a otro banco: balance con Activo = Pasivo + Capital.</p>
+      <p class="nota">Versión del 29 de octubre (10): Banesco por defecto, mismo banco sin comisión: balance con Activo = Pasivo + Capital.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -746,8 +746,9 @@ function abrirOp(tipo) {
   liqSel = 'pend';
   $('clientes').innerHTML = datos.clientes.map(n => `<option value="${esc(n)}">`).join('');
   // En una compra se elige el banco cada vez; en una venta se propone el último usado.
-  bancoOp = tipo === 'Compra' ? '' : (bancosForm().indexOf(datos.banco) >= 0 ? datos.banco : bancosForm()[0] || '');
-  destinoOp = '';
+  // Por defecto Banesco (o el primer banco), y se transfiere al mismo banco, sin comisión.
+  bancoOp = bancoPorDefecto();
+  destinoOp = bancoOp; destinoTocado = false;
   pintarForm();
   $('dlgOp').showModal();
   setTimeout(() => $('cliente').focus(), 50);
@@ -841,7 +842,11 @@ function faltaBs(monto) {
   return total > hay + 0.005 ? 'En ' + bancoOp + ' solo hay ' + bsf(hay) + ' y la compra necesita ' + bsf(total) + (total > monto ? ' con la comisión' : '') + '. Elija otro banco o anote primero los bolívares en Cuentas.' : '';
 }
 // Transferir a otro banco cobra comisión (por defecto 0,3 %) que sale del banco de origen.
-let destinoOp = '';
+let destinoOp = '', destinoTocado = false;
+function bancoPorDefecto() {
+  const bs = bancosForm();
+  return bs.find(b => b.toLowerCase() === 'banesco') || bs[0] || '';
+}
 const mismoBanco = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
 function comisionDe(monto) {
   if (tipoOp !== 'Compra' || !bancoOp || !destinoOp || mismoBanco(bancoOp, destinoOp)) return 0;
@@ -853,7 +858,7 @@ function llenarDestino() {
     lista.map(b => `<option value="${esc(b)}">${esc(b)}${bancoOp && mismoBanco(b, bancoOp) ? ' · mismo banco, sin comisión' : ''}</option>`).join('');
   $('bancoDestino').value = destinoOp;
 }
-$('bancoDestino').addEventListener('input', () => { destinoOp = $('bancoDestino').value; calcularForm(); });
+$('bancoDestino').addEventListener('input', () => { destinoOp = $('bancoDestino').value; destinoTocado = true; calcularForm(); });
 function valoresForm() {
   const t = num($('tasa').value);
   if (!(t > 0)) return null;
@@ -862,8 +867,9 @@ function valoresForm() {
   return u > 0 ? { usd: red(u, 2), tasa: t, bs: red(u * t, 2) } : null;
 }
 
-$('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; if (tipoOp === 'Compra') bancoOp = ''; pintarForm(); });
-$('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; bancoOp = b.dataset.b; pintarForm(); });
+$('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; pintarForm(); });
+// Si no se ha elegido otro destino a mano, el destino sigue al banco de origen.
+$('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; bancoOp = b.dataset.b; if (!destinoTocado) destinoOp = bancoOp; pintarForm(); });
 $('cliente').addEventListener('change', () => { if (tipoOp === 'Compra') llenarDestino(); });
 $('usd').addEventListener('input', () => { ultimoEditado = 'usd'; calcularForm(); });
 $('bs').addEventListener('input', () => { ultimoEditado = 'bs'; calcularForm(); });
@@ -897,7 +903,6 @@ $('fOp').addEventListener('submit', e => {
     if (falta) return aviso(falta);
     op = { ...op, ...u, banco: bancoOp, gan: 0 };
     if (tipoOp === 'Compra') { op.bancoDestino = destinoOp; op.comision = comisionDe(u.bs); }
-    if (tipoOp === 'Venta') datos.banco = bancoOp;
   }
   // La cuenta en dólares que se mueve si los dólares ya se entregaron o recibieron.
   const liq = $('liquida').value;
