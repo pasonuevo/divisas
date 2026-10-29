@@ -51,6 +51,16 @@ header h1 small{display:block;font-size:11px;letter-spacing:.18em;color:var(--or
 .bienvenida p{margin:6px 0 0}
 .ajustes-bloque{border-top:1px solid var(--line);margin-top:16px;padding-top:6px}
 .ajustes-bloque .btn{width:100%;margin-top:8px}
+.check{display:flex;gap:10px;align-items:flex-start;color:var(--fg);font-size:15px;line-height:1.4;background:var(--tint);border-radius:10px;padding:10px 12px;margin:12px 0 0;cursor:pointer}
+.check input{width:22px;height:22px;flex:none;margin:0;accent-color:var(--btn)}
+.pago{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
+.pago .btn{padding:12px 16px;font-size:16px}
+.hist{margin-top:10px;font-size:14px}
+.hist div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.hist span{color:var(--muted);min-width:0;overflow-wrap:anywhere}
+.hist b{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.editar{border-top:1px solid var(--line);margin-top:16px;padding-top:4px}
+.saldadas{width:100%;margin-top:8px;background:none;border:0;color:var(--muted);font-size:14px;cursor:pointer;text-decoration:underline}
 nav{display:flex;max-width:640px;margin:10px auto 0}
 nav button{flex:1;background:none;border:0;color:var(--prin-fg);opacity:.7;padding:10px 4px 11px;font-size:15px;font-weight:600;border-bottom:3px solid transparent;cursor:pointer}
 nav button.on{opacity:1;border-bottom-color:var(--oro)}
@@ -155,7 +165,7 @@ textarea{min-height:56px;resize:vertical}
   <div class="bienvenida" id="bienvenida" hidden>
     <b>Bienvenido a Divisas</b>
     Anote cada compra y venta de dólares con su tasa. La app calcula la tasa costo del mes, la ganancia de cada venta y el resumen del mes.
-    <p>En <b style="display:inline;font-size:inherit">Cuentas</b> lleve sus saldos en bancos, lo que le deben y lo que debe. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
+    <p>Cada venta deja una cuenta por pagar al cliente y cada compra una cuenta por cobrar; en <b style="display:inline;font-size:inherit">Cuentas</b> marque los pagos y lleve sus saldos en bancos. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
   </div>
   <div class="mes" id="mesBar">
     <button type="button" id="mesAnt" aria-label="Mes anterior">‹</button>
@@ -264,6 +274,7 @@ textarea{min-height:56px;resize:vertical}
         <div><label for="uGan">Ganancia (USD)</label><input id="uGan" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
       </div>
     </div>
+    <label class="check" id="bloquePend"><input type="checkbox" id="pend" checked><span id="pendTxt"></span></label>
     <div class="calc" id="calc"></div>
     <div class="aviso" id="avisoOp"></div>
     <label for="notaOp">Nota</label>
@@ -292,12 +303,22 @@ textarea{min-height:56px;resize:vertical}
 <dialog id="dlgCta">
   <form method="dialog" id="fCta">
     <h3 id="ctaTitulo"></h3>
+    <div id="bloquePago" hidden>
+      <label for="pagoMonto" id="pagoLbl"></label>
+      <div class="pago">
+        <input id="pagoMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
+        <button class="btn prin" type="button" id="pagoBtn"></button>
+      </div>
+      <div class="hist" id="ctaHist"></div>
+    </div>
+    <div id="bloqueEditar">
     <label for="ctaNombre">Nombre</label>
     <input id="ctaNombre" autocomplete="off" autocapitalize="words">
     <label for="ctaSaldo" id="ctaLblSaldo">Saldo</label>
     <input id="ctaSaldo" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
     <label for="ctaNota">Nota</label>
     <textarea id="ctaNota"></textarea>
+    </div>
     <div class="aviso" id="avisoCta"></div>
     <div class="fila">
       <button class="btn" type="button" id="borrarCta">Borrar</button>
@@ -401,6 +422,32 @@ const signo = n => n > 0.005 ? 'pos' : n < -0.005 ? 'neg' : '';
 function operacionesDe(m) {
   return datos.ops.filter(o => mesDe(o.fecha) === m).sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
 }
+
+// Cuentas por cobrar y por pagar que nacen de las operaciones.
+// Vender dólares: el cliente ya pagó los bolívares y se le deben los dólares (por pagar).
+// Comprar dólares: ya se le pasaron los bolívares y él debe los dólares (por cobrar).
+const grupoDe = tipo => tipo === 'Venta' ? 'Por pagar' : tipo === 'Compra' ? 'Por cobrar' : '';
+function cuentaDe(grupo, nombre) {
+  let c = datos.cuentas.find(x => x.grupo === grupo && x.nombre.toLowerCase() === nombre.toLowerCase());
+  if (!c) { c = { id: nuevoId(), grupo, nombre, saldo: 0, nota: '', movs: [] }; datos.cuentas.push(c); }
+  c.movs = c.movs || [];
+  return c;
+}
+function mover(grupo, nombre, monto, desc, opId, fecha) {
+  const c = cuentaDe(grupo, nombre);
+  c.saldo = red(c.saldo + monto, 2);
+  c.movs.push({ id: nuevoId(), fecha: fecha || ahoraLocal(), monto: red(monto, 2), desc, opId: opId || '' });
+  c.actualizado = new Date().toISOString();
+}
+// Quita de las cuentas lo que generó una operación (al anularla).
+function revertir(opId) {
+  datos.cuentas.forEach(c => {
+    (c.movs || []).filter(m => m.opId === opId).forEach(m => { c.saldo = red(c.saldo - m.monto, 2); });
+    if (c.movs) c.movs = c.movs.filter(m => m.opId !== opId);
+  });
+}
+const esDeuda = g => g === 'Por cobrar' || g === 'Por pagar';
+let verSaldadas = false;
 
 // La tasa costo es el promedio ponderado de todas las compras del mes;
 // cada venta gana (tasa de venta − tasa costo) × monto.
@@ -538,16 +585,20 @@ function pintarCtas() {
   const { t, de } = tasaBs();
   const tot = {};
   $('grupos').innerHTML = GRUPOS.map(G => {
-    const lista = datos.cuentas.filter(c => c.grupo === G.g).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    const todas = datos.cuentas.filter(c => c.grupo === G.g).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
     const enBs = G.g === 'Bolívares';
-    const suma = lista.reduce((s, c) => s + c.saldo, 0);
+    const suma = todas.reduce((s, c) => s + c.saldo, 0);
+    // Las cuentas por cobrar o por pagar en cero se esconden (quedan como saldadas).
+    const saldadas = esDeuda(G.g) ? todas.filter(c => Math.abs(c.saldo) < 0.005) : [];
+    const lista = verSaldadas ? todas : todas.filter(c => saldadas.indexOf(c) < 0);
     tot[G.g] = enBs ? (t ? suma / t : 0) : suma;
     const items = lista.map(c => `<button type="button" class="cta" data-cta="${esc(c.id)}">
         <span>${esc(c.nombre)}${c.nota ? `<small>${esc(c.nota)}</small>` : ''}</span>
         <b class="${c.saldo < 0 ? 'neg' : ''}">${enBs ? bsf(c.saldo) + (t ? `<small>${usd(c.saldo / t)}</small>` : '') : usd(c.saldo)}</b></button>`).join('');
     return `<section class="tarjeta"><h2>${esc(G.titulo)} <small class="num-f">${enBs ? bsf(suma) + (t ? ' · ' + usd(tot[G.g]) : '') : usd(suma)}</small></h2>
-      ${items || '<div class="vacio">Nada anotado.</div>'}
+      ${items || `<div class="vacio">${saldadas.length ? 'Todo saldado.' : 'Nada anotado.'}</div>`}
       ${enBs && lista.length ? `<p class="nota">En dólares a ${tasa(t)} (${esc(de)}).</p>` : ''}
+      ${saldadas.length ? `<button type="button" class="saldadas" data-saldadas="1">${verSaldadas ? 'Esconder saldadas' : 'Ver ' + saldadas.length + (saldadas.length === 1 ? ' saldada' : ' saldadas')}</button>` : ''}
       <button type="button" class="agregar" data-grupo="${esc(G.g)}">＋ Agregar</button></section>`;
   }).join('');
   const disp = tot['Banco'] + tot['Bolívares'] + tot['Por cobrar'] - tot['Por pagar'];
@@ -577,6 +628,7 @@ function abrirOp(tipo) {
   $('fecha').value = ahoraLocal();
   $('avisoOp').textContent = '';
   ultimoEditado = 'usd';
+  $('pend').checked = true;
   $('clientes').innerHTML = datos.clientes.map(n => `<option value="${esc(n)}">`).join('');
   if (datos.bancos.indexOf(datos.banco) < 0) datos.banco = datos.bancos[0] || '';
   $('bancos').innerHTML = datos.bancos.map(b => `<button type="button" data-b="${esc(b)}">${esc(b)}</button>`).join('');
@@ -591,7 +643,15 @@ function pintarForm() {
   [...$('bancos').children].forEach(b => b.classList.toggle('on', b.dataset.b === datos.banco));
   $('bloqueDiv').hidden = tipoOp === 'USDT/EF';
   $('bloqueUsdt').hidden = tipoOp !== 'USDT/EF';
+  $('bloquePend').hidden = tipoOp === 'USDT/EF';
   calcularForm();
+}
+function textoPend() {
+  const quien = $('cliente').value.trim() || 'el cliente';
+  const u = valoresForm(), m = u ? usd(u.usd) : 'los dólares';
+  $('pendTxt').textContent = tipoOp === 'Venta'
+    ? 'Queda por pagar: le debo ' + m + ' a ' + quien + '. Desmárquelo si ya se los entregó.'
+    : 'Queda por cobrar: ' + quien + ' me debe ' + m + '. Desmárquelo si ya se los dio.';
 }
 // Monto × tasa = total. Si se escribe el total en bolívares, se calcula el monto.
 function calcularForm() {
@@ -603,6 +663,7 @@ function calcularForm() {
     return;
   }
   const t = num($('tasa').value);
+  setTimeout(textoPend);
   if (ultimoEditado === 'bs') {
     const b = num($('bs').value);
     $('usd').value = b > 0 && t > 0 ? (b / t).toFixed(2) : '';
@@ -638,6 +699,7 @@ $('bancos').addEventListener('click', e => { const b = e.target.closest('button'
 $('usd').addEventListener('input', () => { ultimoEditado = 'usd'; calcularForm(); });
 $('bs').addEventListener('input', () => { ultimoEditado = 'bs'; calcularForm(); });
 ['tasa', 'uMonto', 'uGan'].forEach(id => $(id).addEventListener('input', calcularForm));
+$('cliente').addEventListener('input', textoPend);
 $('fecha').addEventListener('change', calcularForm);
 // Si deja la tasa vacía, usa la de la última operación.
 $('tasa').addEventListener('blur', () => { if (!$('tasa').value && $('tasa').placeholder !== '0.00') { $('tasa').value = $('tasa').placeholder.replace(/,/g, ''); calcularForm(); } });
@@ -660,10 +722,16 @@ $('fOp').addEventListener('submit', e => {
     if (!u) return aviso('Escriba el monto en dólares o el total en bolívares.');
     op = { ...op, ...u, banco: datos.bancos.length ? datos.banco : '', gan: 0 };
   }
+  const antes = JSON.stringify(datos);
+  const grupo = grupoDe(tipoOp);
+  if (grupo && $('pend').checked) {
+    op.cuenta = grupo;
+    mover(grupo, cliente, op.usd, (tipoOp === 'Venta' ? 'Venta' : 'Compra') + ' a tasa ' + tasa(op.tasa), op.id, fecha);
+  }
   datos.ops.push(op);
   // El cliente nuevo queda en la lista para que se autocomplete igual la próxima vez.
   if (!datos.clientes.some(n => n.toLowerCase() === cliente.toLowerCase())) datos.clientes = datos.clientes.concat(cliente).sort((a, b) => a.localeCompare(b, 'es'));
-  if (!guardarDatos()) { datos.ops.pop(); return aviso('No se pudo guardar en el teléfono.'); }
+  if (!guardarDatos()) { datos = JSON.parse(antes); return aviso('No se pudo guardar en el teléfono.'); }
   $('dlgOp').close();
   mes = mesDe(fecha); vista = 'ops'; pintar();
 });
@@ -684,17 +752,18 @@ $('lista').addEventListener('click', e => {
     lin.push(['Monto', usd(o.usd)], ['Tasa', tasa(o.tasa)], ['Total', bsf(o.bs)], ['Banco', o.banco || '—']);
     if (o.tipo === 'Venta' && r.costo && !o.anulado) { const g = r.ganancia(o); lin.push(['Tasa costo', tasa(r.costo)], ['Ganancia', bsf(g) + ' · ' + pct(g / o.bs)]); }
   }
+  if (o.cuenta && !o.anulado) lin.push(['Cuenta', o.cuenta + ' · ' + o.cliente]);
   if (o.nota) lin.push(['Nota', o.nota]);
   $('detTxt').innerHTML = lin.map(([k, v]) => `<div><span>${esc(k)}:</span> ${esc(v)}</div>`).join('');
   $('btnAnular').textContent = o.anulado ? 'Borrar' : 'Anular';
-  $('detNota').textContent = o.anulado ? 'Está anulada y no cuenta. Si la borra, desaparece de la lista.' : 'Si la anula, queda tachada en la lista y deja de contar en los cálculos.';
+  $('detNota').textContent = o.anulado ? 'Está anulada y no cuenta. Si la borra, desaparece de la lista.' : 'Si la anula, queda tachada en la lista y deja de contar en los cálculos' + (o.cuenta ? ' y en la cuenta ' + o.cuenta.toLowerCase() + ' de ' + o.cliente : '') + '.';
   $('dlgDet').showModal();
 });
 $('btnAnular').addEventListener('click', () => {
   const b = $('btnAnular');
   if (b.textContent === 'Anular' || b.textContent === 'Borrar') { b.dataset.que = b.textContent; b.textContent = 'Toque otra vez para ' + b.textContent.toLowerCase(); return; }
   if (b.dataset.que === 'Borrar') datos.ops = datos.ops.filter(x => x !== opDet);
-  else opDet.anulado = true;
+  else { opDet.anulado = true; revertir(opDet.id); }
   guardarDatos();
   $('dlgDet').close();
   pintar();
@@ -714,11 +783,34 @@ function abrirCta(c) {
   $('borrarCta').hidden = !c.nombre;
   $('borrarCta').textContent = 'Borrar';
   $('avisoCta').textContent = '';
+  const conPago = esDeuda(c.grupo) && !!c.nombre;
+  $('bloquePago').hidden = !conPago;
+  $('bloqueEditar').classList.toggle('editar', conPago);
+  if (conPago) {
+    const paga = c.grupo === 'Por pagar';
+    $('ctaTitulo').textContent = c.nombre + ' · ' + (paga ? 'le debo ' : 'me debe ') + usd(c.saldo);
+    $('pagoLbl').textContent = paga ? '¿Cuánto le pagó? (USD)' : '¿Cuánto le pagaron? (USD)';
+    $('pagoBtn').textContent = paga ? 'Pagué' : 'Me pagó';
+    $('pagoMonto').value = '';
+    $('pagoMonto').placeholder = c.saldo > 0 ? f2.format(c.saldo) : '0.00';
+    const movs = (c.movs || []).slice().reverse().slice(0, 15);
+    $('ctaHist').innerHTML = movs.map(m => `<div><span>${esc(m.fecha.slice(8, 10) + '/' + m.fecha.slice(5, 7))} · ${esc(m.desc)}</span><b class="${m.monto < 0 ? 'pos' : ''}">${m.monto > 0 ? '+' : ''}${usd(m.monto)}</b></div>`).join('');
+  }
   $('dlgCta').showModal();
 }
+$('pagoBtn').addEventListener('click', () => {
+  const c = ctaActual;
+  const v = $('pagoMonto').value.trim() ? num($('pagoMonto').value) : (c.saldo > 0 ? c.saldo : NaN);
+  if (!(v > 0)) { $('avisoCta').textContent = 'Escriba el monto.'; return; }
+  mover(c.grupo, c.nombre, -v, c.grupo === 'Por pagar' ? 'Pago' : 'Cobro');
+  guardarDatos();
+  pintar();
+  abrirCta(datos.cuentas.find(x => x.id === c.id));
+});
 $('grupos').addEventListener('click', e => {
   const a = e.target.closest('[data-grupo]');
-  if (a) return abrirCta({ id: nuevoId(), grupo: a.dataset.grupo, nombre: '', saldo: 0, nota: '' });
+  if (e.target.closest('[data-saldadas]')) { verSaldadas = !verSaldadas; pintar(); return; }
+  if (a) return abrirCta({ id: nuevoId(), grupo: a.dataset.grupo, nombre: '', saldo: 0, nota: '', movs: [] });
   const b = e.target.closest('[data-cta]');
   if (b) { const c = datos.cuentas.find(x => x.id === b.dataset.cta); if (c) abrirCta(c); }
 });
@@ -728,6 +820,8 @@ $('fCta').addEventListener('submit', e => {
   if (!nombre) { $('avisoCta').textContent = 'Escriba el nombre.'; return; }
   if (isNaN(saldo)) { $('avisoCta').textContent = 'Escriba el saldo.'; return; }
   const nueva = { ...ctaActual, nombre, saldo: red(saldo, 2), nota: $('ctaNota').value.trim(), actualizado: new Date().toISOString() };
+  const dif = red(nueva.saldo - (ctaActual.saldo || 0), 2);
+  if (ctaActual.nombre && dif) nueva.movs = (nueva.movs || []).concat({ id: nuevoId(), fecha: ahoraLocal(), monto: dif, desc: 'Ajuste a mano', opId: '' });
   datos.cuentas = datos.cuentas.filter(x => x.id !== nueva.id).concat(nueva);
   guardarDatos();
   $('dlgCta').close();
