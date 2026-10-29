@@ -376,14 +376,18 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (7): balance con Activo = Pasivo + Capital.</p>
+      <p class="nota">Versión del 29 de octubre (8): balance con Activo = Pasivo + Capital.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
       <input type="file" id="archivo" accept="application/json,.json" hidden>
     </div>
     <div class="ajustes-bloque">
-      <button class="btn peligro" type="button" id="borrarTodo">Borrar todo y empezar de cero</button>
+      <label>Empezar de cero</label>
+      <p class="nota">Pone todos los números en cero: borra las operaciones, los cobros y pagos y el capital. Quedan sus cuentas, bancos y clientes con saldo 0. Descargue antes una copia si quiere guardar lo anterior.</p>
+      <button class="btn peligro" type="button" id="ponerCero">Poner los números en cero</button>
+      <p class="nota" style="margin-top:14px">O borre también los nombres de cuentas, bancos y clientes, como si la abriera por primera vez:</p>
+      <button class="btn" type="button" id="borrarTodo">Borrar todo, incluidos los nombres</button>
     </div>
     <div class="aviso" id="avisoAjustes"></div>
   </form>
@@ -1134,7 +1138,8 @@ function abrirAjustes() {
   $('aBancos').value = datos.bancos.join('\n');
   $('aResumen').textContent = datos.ops.length + ' operaciones y ' + datos.cuentas.length + ' cuentas guardadas en este teléfono.';
   $('avisoAjustes').textContent = '';
-  $('borrarTodo').textContent = 'Borrar todo y empezar de cero';
+  $('borrarTodo').textContent = 'Borrar todo, incluidos los nombres';
+  $('ponerCero').textContent = 'Poner los números en cero';
   $('dlgAjustes').showModal();
 }
 $('ajustes').addEventListener('click', abrirAjustes);
@@ -1168,6 +1173,17 @@ $('archivo').addEventListener('change', async () => {
     $('dlgAjustes').close();
     mes = mesDe(ahoraLocal()); vista = 'ops'; pintar();
   } catch (e) { $('avisoAjustes').textContent = 'Ese archivo no es una copia de Divisas.'; }
+});
+// Deja los nombres (cuentas, bancos, clientes) y borra todos los números.
+$('ponerCero').addEventListener('click', () => {
+  const b = $('ponerCero');
+  if (b.textContent !== 'Toque otra vez para poner todo en cero') { b.textContent = 'Toque otra vez para poner todo en cero'; return; }
+  datos.ops = [];
+  datos.capital = [];
+  datos.cuentas = datos.cuentas.map(c => ({ ...c, saldo: 0, movs: [], actualizado: new Date().toISOString() }));
+  guardarDatos();
+  $('dlgAjustes').close();
+  mes = mesDe(ahoraLocal()); vista = 'ops'; pintar();
 });
 $('borrarTodo').addEventListener('click', () => {
   const b = $('borrarTodo');
