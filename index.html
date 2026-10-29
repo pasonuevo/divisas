@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Divisas</title>
+<title>Cambios</title>
 <meta name="description" content="Registro de compra y venta de dólares: utilidad del mes, bancos, cuentas por cobrar y por pagar.">
-<meta name="theme-color" content="#2B2866">
+<meta name="theme-color" content="#0F2A44">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Divisas">
+<meta name="apple-mobile-web-app-title" content="Cambios">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
@@ -18,19 +18,19 @@
 <style>
 /* Libro de cambio en el teléfono: cabecera fija con pestañas, tarjetas apiladas, cifras en columnas. */
 :root{
-  --bg:#F4F3F8;--surface:#FFFFFF;--fg:#1F1E2A;--muted:#5E5C6B;--line:#D9D7E2;
-  --prin:#2B2866;--prin-fg:#F5F2E6;--btn:#2B2866;--oro:#E2B44B;--tint:#E7E5F2;--on:#2B2866;
-  --warn:#A2482B;--ok:#2F6B4A;--venta:#8A4B12;--pend-bg:#F2E3C4;--pend-fg:#7A5418;--sombra:rgba(0,0,0,.45);
+  --bg:#F2F5F8;--surface:#FFFFFF;--fg:#14202C;--muted:#566474;--line:#D6DEE7;
+  --prin:#0F2A44;--prin-fg:#FFFFFF;--btn:#0F2A44;--oro:#2BB673;--tint:#E2E8EF;--on:#0F2A44;
+  --warn:#B4442A;--ok:#1E9E5E;--venta:#C2410C;--pend-bg:#F2E3C4;--pend-fg:#7A5418;--sombra:rgba(0,0,0,.45);
   --sans:"IBM Plex Sans",-apple-system,"Helvetica Neue",Arial,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#131219;--surface:#1C1B24;--fg:#E8E7EF;--muted:#A6A4B3;--line:#302E3B;--btn:#4A46A0;--on:#9C98E8;
-  --tint:#25233A;--warn:#E58A68;--ok:#7FC39B;--venta:#E9A866;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
+  --bg:#0B1622;--surface:#12212F;--fg:#E6EDF4;--muted:#9AAABB;--line:#22364A;--btn:#1D4A72;--on:#6FD3A1;
+  --tint:#17283A;--warn:#F08A6C;--ok:#5FD39A;--venta:#F0915A;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
 }}
 :root[data-theme="dark"]{
-  --bg:#131219;--surface:#1C1B24;--fg:#E8E7EF;--muted:#A6A4B3;--line:#302E3B;--btn:#4A46A0;--on:#9C98E8;
-  --tint:#25233A;--warn:#E58A68;--ok:#7FC39B;--venta:#E9A866;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
+  --bg:#0B1622;--surface:#12212F;--fg:#E6EDF4;--muted:#9AAABB;--line:#22364A;--btn:#1D4A72;--on:#6FD3A1;
+  --tint:#17283A;--warn:#F08A6C;--ok:#5FD39A;--venta:#F0915A;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -155,7 +155,7 @@ textarea{min-height:56px;resize:vertical}
 <body>
 <header>
   <div class="barra">
-    <h1>Divisas<small>COMPRA Y VENTA</small></h1>
+    <h1>Cambios<small>COMPRA Y VENTA</small></h1>
     <span class="estado" id="estado">En este teléfono</span>
     <button class="icono" id="ajustes" type="button" aria-label="Ajustes">⚙︎</button>
   </div>
@@ -168,7 +168,7 @@ textarea{min-height:56px;resize:vertical}
 <main>
   <div class="aviso-db" id="avisoDb" hidden></div>
   <div class="bienvenida" id="bienvenida" hidden>
-    <b>Bienvenido a Divisas</b>
+    <b>Bienvenido a Cambios</b>
     Anote cada compra y venta de dólares con su tasa. La app calcula la tasa costo del mes, la ganancia de cada venta y el resumen del mes.
     <p>Cada venta suma los bolívares a su banco y deja una cuenta por pagar al cliente; cada compra los resta y deja una cuenta por cobrar. Todo se lleva por partida doble para que Activo = Pasivo + Capital; en <b style="display:inline;font-size:inherit">Cuentas</b> marque los pagos y lleve sus saldos en bancos. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
   </div>
@@ -383,7 +383,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (10): Banesco por defecto, mismo banco sin comisión: balance con Activo = Pasivo + Capital.</p>
+      <p class="nota">Versión del 29 de octubre (11): nuevo nombre «Cambios» y nuevos colores: balance con Activo = Pasivo + Capital.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -1195,7 +1195,7 @@ $('fAjustes').addEventListener('submit', e => {
   pintar();
 });
 $('exportar').addEventListener('click', () => {
-  const nombre = 'divisas-copia-' + ahoraLocal().slice(0, 10) + '.json';
+  const nombre = 'cambios-copia-' + ahoraLocal().slice(0, 10) + '.json';
   const blob = new Blob([JSON.stringify(datos, null, 1)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = nombre;
@@ -1215,7 +1215,7 @@ $('archivo').addEventListener('change', async () => {
     guardarDatos();
     $('dlgAjustes').close();
     mes = mesDe(ahoraLocal()); vista = 'ops'; pintar();
-  } catch (e) { $('avisoAjustes').textContent = 'Ese archivo no es una copia de Divisas.'; }
+  } catch (e) { $('avisoAjustes').textContent = 'Ese archivo no es una copia de Cambios.'; }
 });
 // Deja los nombres (cuentas, bancos, clientes) y borra todos los números.
 $('ponerCero').addEventListener('click', () => {
