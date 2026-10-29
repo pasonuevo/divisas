@@ -165,7 +165,7 @@ textarea{min-height:56px;resize:vertical}
   <div class="bienvenida" id="bienvenida" hidden>
     <b>Bienvenido a Divisas</b>
     Anote cada compra y venta de dólares con su tasa. La app calcula la tasa costo del mes, la ganancia de cada venta y el resumen del mes.
-    <p>Cada venta deja una cuenta por pagar al cliente y cada compra una cuenta por cobrar; en <b style="display:inline;font-size:inherit">Cuentas</b> marque los pagos y lleve sus saldos en bancos. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
+    <p>Cada venta suma los bolívares a su banco y deja una cuenta por pagar al cliente; cada compra los resta y deja una cuenta por cobrar; en <b style="display:inline;font-size:inherit">Cuentas</b> marque los pagos y lleve sus saldos en bancos. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
   </div>
   <div class="mes" id="mesBar">
     <button type="button" id="mesAnt" aria-label="Mes anterior">‹</button>
@@ -309,8 +309,8 @@ textarea{min-height:56px;resize:vertical}
         <input id="pagoMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
         <button class="btn prin" type="button" id="pagoBtn"></button>
       </div>
-      <div class="hist" id="ctaHist"></div>
     </div>
+    <div class="hist" id="ctaHist"></div>
     <div id="bloqueEditar">
     <label for="ctaNombre">Nombre</label>
     <input id="ctaNombre" autocomplete="off" autocapitalize="words">
@@ -644,6 +644,7 @@ function pintarForm() {
   $('bloqueDiv').hidden = tipoOp === 'USDT/EF';
   $('bloqueUsdt').hidden = tipoOp !== 'USDT/EF';
   $('bloquePend').hidden = tipoOp === 'USDT/EF';
+  $('lblBancos').textContent = tipoOp === 'Venta' ? 'Banco donde entran los bolívares' : 'Banco de donde salen los bolívares';
   calcularForm();
 }
 function textoPend() {
@@ -728,6 +729,8 @@ $('fOp').addEventListener('submit', e => {
     op.cuenta = grupo;
     mover(grupo, cliente, op.usd, (tipoOp === 'Venta' ? 'Venta' : 'Compra') + ' a tasa ' + tasa(op.tasa), op.id, fecha);
   }
+  // Al vender entran los bolívares al banco; al comprar salen de él.
+  if (op.banco) mover('Bolívares', op.banco, tipoOp === 'Venta' ? op.bs : -op.bs, (tipoOp === 'Venta' ? 'Venta a ' : 'Compra a ') + cliente, op.id, fecha);
   datos.ops.push(op);
   // El cliente nuevo queda en la lista para que se autocomplete igual la próxima vez.
   if (!datos.clientes.some(n => n.toLowerCase() === cliente.toLowerCase())) datos.clientes = datos.clientes.concat(cliente).sort((a, b) => a.localeCompare(b, 'es'));
@@ -749,7 +752,7 @@ $('lista').addEventListener('click', e => {
   const lin = [['Fecha', new Date(o.fecha).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })]];
   if (o.tipo === 'USDT/EF') lin.push(['Venta', usd(o.usd)], ['Ganancia', usd(o.gan)]);
   else {
-    lin.push(['Monto', usd(o.usd)], ['Tasa', tasa(o.tasa)], ['Total', bsf(o.bs)], ['Banco', o.banco || '—']);
+    lin.push(['Monto', usd(o.usd)], ['Tasa', tasa(o.tasa)], ['Total', bsf(o.bs)], ['Banco', o.banco ? o.banco + (o.anulado ? '' : (o.tipo === 'Venta' ? ' (entraron ' : ' (salieron ') + bsf(o.bs) + ')') : '—']);
     if (o.tipo === 'Venta' && r.costo && !o.anulado) { const g = r.ganancia(o); lin.push(['Tasa costo', tasa(r.costo)], ['Ganancia', bsf(g) + ' · ' + pct(g / o.bs)]); }
   }
   if (o.cuenta && !o.anulado) lin.push(['Cuenta', o.cuenta + ' · ' + o.cliente]);
@@ -784,8 +787,12 @@ function abrirCta(c) {
   $('borrarCta').textContent = 'Borrar';
   $('avisoCta').textContent = '';
   const conPago = esDeuda(c.grupo) && !!c.nombre;
+  const movs = c.nombre ? (c.movs || []).slice().reverse().slice(0, 15) : [];
+  const enBs = c.grupo === 'Bolívares';
+  // En bancos lo que entra es verde; en deudas lo verde es lo que se paga o cobra.
+  $('ctaHist').innerHTML = movs.map(m => `<div><span>${esc(m.fecha.slice(8, 10) + '/' + m.fecha.slice(5, 7))} · ${esc(m.desc)}</span><b class="${esDeuda(c.grupo) ? (m.monto < 0 ? 'pos' : '') : (m.monto < 0 ? 'neg' : 'pos')}">${m.monto > 0 ? '+' : ''}${enBs ? bsf(m.monto) : usd(m.monto)}</b></div>`).join('');
   $('bloquePago').hidden = !conPago;
-  $('bloqueEditar').classList.toggle('editar', conPago);
+  $('bloqueEditar').classList.toggle('editar', conPago || movs.length > 0);
   if (conPago) {
     const paga = c.grupo === 'Por pagar';
     $('ctaTitulo').textContent = c.nombre + ' · ' + (paga ? 'le debo ' : 'me debe ') + usd(c.saldo);
@@ -793,8 +800,6 @@ function abrirCta(c) {
     $('pagoBtn').textContent = paga ? 'Pagué' : 'Me pagó';
     $('pagoMonto').value = '';
     $('pagoMonto').placeholder = c.saldo > 0 ? f2.format(c.saldo) : '0.00';
-    const movs = (c.movs || []).slice().reverse().slice(0, 15);
-    $('ctaHist').innerHTML = movs.map(m => `<div><span>${esc(m.fecha.slice(8, 10) + '/' + m.fecha.slice(5, 7))} · ${esc(m.desc)}</span><b class="${m.monto < 0 ? 'pos' : ''}">${m.monto > 0 ? '+' : ''}${usd(m.monto)}</b></div>`).join('');
   }
   $('dlgCta').showModal();
 }
