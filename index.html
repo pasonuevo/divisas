@@ -376,7 +376,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (6): balance con Activo = Pasivo + Capital.</p>
+      <p class="nota">Versión del 29 de octubre (7): balance con Activo = Pasivo + Capital.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -704,10 +704,10 @@ function pintarCtas() {
     `<div class="disp"><span>Resultado de operaciones</span><b class="${signo(b.resultado)}">${usd(b.resultado)}</b></div>` +
     `<div class="disp sub"><span>Ganancia de los meses (Resumen)</span><b>${usd(b.realizada)}</b></div>` +
     `<div class="disp sub"><span>Por tasa e inventario abierto</span><b>${usd(b.porTasa)}</b></div>` +
-    `<div class="disp"><span>Total capital</span><b>${usd(b.capital)}</b></div>` +
-    `<div class="disp fin"><span>Pasivo + capital</span><span>${usd(b.pasivo + b.capital)}</span></div>` +
+    `<div class="disp fin"><span>Su capital</span><span class="${signo(b.capital)}">${usd(b.capital)}</span></div>` +
+    `<div class="disp sub" style="margin-top:8px"><span>Comprobación: pasivo + capital</span><b>${usd(b.pasivo + b.capital)}</b></div>` +
     (b.cuadra
-      ? `<p class="nota">Activo = Pasivo + Capital. Bolívares valorados a ${tasa(b.R)}.</p>`
+      ? `<p class="nota">Su capital es lo que le queda si cobra todo lo que le deben y paga todo lo que debe. Activo (${usd(b.activo)}) = Pasivo (${usd(b.pasivo)}) + Capital (${usd(b.capital)}). Bolívares valorados a ${tasa(b.R)}.</p>`
       : `<p class="nota neg">Hay ${b.difUsd ? usd(b.difUsd) : ''}${b.difUsd && b.difBs ? ' y ' : ''}${b.difBs ? bsf(b.difBs) : ''} en las cuentas que no vienen de ninguna operación ni aporte. Suele pasar con datos anotados antes de esta versión.</p>
          <button type="button" class="btn" id="btnCuadrar" style="width:100%;margin-top:8px">Anotar la diferencia como capital</button>`);
 }
