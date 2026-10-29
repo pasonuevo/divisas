@@ -1,6 +1,6 @@
 // Guarda la app de divisas en el teléfono para que abra sin internet.
 // Al cambiar la app, cambiar VERSION para que el teléfono baje la copia nueva.
-const VERSION = 'divisas-2026-10-29-7';
+const VERSION = 'divisas-2026-10-29-8';
 const FILES = ['./', './index.html', './manifest.json', './apple-touch-icon.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

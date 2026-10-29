@@ -135,7 +135,7 @@ input.num{font-size:20px;font-weight:600;text-align:right;font-family:var(--mono
 textarea{min-height:56px;resize:vertical}
 .dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 .opciones{display:flex;gap:8px;flex-wrap:wrap}
-.opciones button{flex:1;border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:12px 8px;font-size:16px;font-weight:600;min-width:80px;cursor:pointer}
+.opciones button{flex:1 1 30%;border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 6px;font-size:15px;font-weight:600;min-width:0;overflow-wrap:anywhere;cursor:pointer}
 .opciones button.on{border-color:var(--on);background:var(--tint)}
 .calc{background:var(--tint);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:15px;line-height:1.5}
 .calc:empty{display:none}
@@ -344,7 +344,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (3): cobros y pagos a sus cuentas o a terceros.</p>
+      <p class="nota">Versión del 29 de octubre (4): para comprar se elige el banco y debe tener los bolívares.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -630,7 +630,7 @@ function pintarEstado() {
 }
 
 // Formulario de operación
-let tipoOp = 'Compra', ultimoEditado = 'usd';
+let tipoOp = 'Compra', ultimoEditado = 'usd', bancoOp = '';
 function abrirOp(tipo) {
   tipoOp = tipo;
   ['cliente', 'usd', 'tasa', 'bs', 'uMonto', 'uGan', 'notaOp'].forEach(id => $(id).value = '');
@@ -641,21 +641,30 @@ function abrirOp(tipo) {
   ultimoEditado = 'usd';
   $('pend').checked = true;
   $('clientes').innerHTML = datos.clientes.map(n => `<option value="${esc(n)}">`).join('');
-  if (datos.bancos.indexOf(datos.banco) < 0) datos.banco = datos.bancos[0] || '';
-  $('bancos').innerHTML = datos.bancos.map(b => `<button type="button" data-b="${esc(b)}">${esc(b)}</button>`).join('');
-  $('lblBancos').hidden = $('bancos').hidden = !datos.bancos.length;
+  // En una compra se elige el banco cada vez; en una venta se propone el último usado.
+  bancoOp = tipo === 'Compra' ? '' : (bancosForm().indexOf(datos.banco) >= 0 ? datos.banco : bancosForm()[0] || '');
   pintarForm();
   $('dlgOp').showModal();
   setTimeout(() => $('cliente').focus(), 50);
 }
+// Los bancos de Ajustes más las cuentas en bolívares que ya existan.
+function bancosForm() {
+  const n = datos.bancos.slice();
+  datos.cuentas.filter(c => c.grupo === 'Bolívares').forEach(c => { if (!n.some(x => x.toLowerCase() === c.nombre.toLowerCase())) n.push(c.nombre); });
+  return n;
+}
+const saldoBs = nombre => { const c = datos.cuentas.find(x => x.grupo === 'Bolívares' && x.nombre.toLowerCase() === nombre.toLowerCase()); return c ? c.saldo : 0; };
 function pintarForm() {
+  const bs = bancosForm();
+  $('bancos').innerHTML = bs.map(b => `<button type="button" data-b="${esc(b)}">${esc(b)}<small style="display:block;font-weight:400;font-size:12px;color:var(--muted)" class="num-f">${bsf(saldoBs(b))}</small></button>`).join('');
+  $('lblBancos').hidden = $('bancos').hidden = !bs.length;
   $('opTitulo').textContent = tipoOp === 'USDT/EF' ? 'USDT / Efectivo' : tipoOp === 'Compra' ? 'Compra de dólares' : 'Venta de dólares';
   [...$('tipos').children].forEach(b => b.classList.toggle('on', b.dataset.t === tipoOp));
-  [...$('bancos').children].forEach(b => b.classList.toggle('on', b.dataset.b === datos.banco));
+  [...$('bancos').children].forEach(b => b.classList.toggle('on', b.dataset.b === bancoOp));
   $('bloqueDiv').hidden = tipoOp === 'USDT/EF';
   $('bloqueUsdt').hidden = tipoOp !== 'USDT/EF';
   $('bloquePend').hidden = tipoOp === 'USDT/EF';
-  $('lblBancos').textContent = tipoOp === 'Venta' ? 'Banco donde entran los bolívares' : 'Banco de donde salen los bolívares';
+  $('lblBancos').textContent = tipoOp === 'Venta' ? 'Banco donde entran los bolívares' : '¿De qué banco salen los bolívares?';
   calcularForm();
 }
 function textoPend() {
@@ -691,12 +700,18 @@ function calcularForm() {
       const g = u.bs - u.usd * r.costo;
       c.innerHTML = `Ganancia: <b class="num-f ${signo(g)}">${bsf(g)}</b> · ${pct(g / u.bs)} · ${usd(g / u.tasa)}<br><small>Con la tasa costo de hoy (${tasa(r.costo)}). Cambia si entran más compras este mes.</small>`;
     } else c.textContent = 'Todavía no hay compras este mes para calcular la ganancia.';
-    $('avisoOp').textContent = u.usd > r.inv + 0.005 ? 'Ojo: es más que el inventario del mes (' + usd(r.inv) + ').' : '';
+    $('avisoOp').textContent = '';
   } else {
     const nuevo = (r.c.bs + u.bs) / (r.c.usd + u.usd);
     c.innerHTML = r.c.usd ? `Tasa costo del mes pasa de ${tasa(r.costo)} a <b class="num-f">${tasa(nuevo)}</b>` : `Tasa costo del mes: <b class="num-f">${tasa(nuevo)}</b>`;
-    $('avisoOp').textContent = '';
+    $('avisoOp').textContent = faltaBs(u.bs);
   }
+}
+// Para comprar hay que tener los bolívares en el banco; vender no lo requiere.
+function faltaBs(monto) {
+  if (tipoOp !== 'Compra' || !bancoOp) return '';
+  const hay = saldoBs(bancoOp);
+  return monto > hay + 0.005 ? 'En ' + bancoOp + ' solo hay ' + bsf(hay) + ' y la compra necesita ' + bsf(monto) + '. Elija otro banco o anote primero los bolívares en Cuentas.' : '';
 }
 function valoresForm() {
   const t = num($('tasa').value);
@@ -706,8 +721,8 @@ function valoresForm() {
   return u > 0 ? { usd: red(u, 2), tasa: t, bs: red(u * t, 2) } : null;
 }
 
-$('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; pintarForm(); });
-$('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; datos.banco = b.dataset.b; pintarForm(); });
+$('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; if (tipoOp === 'Compra') bancoOp = ''; pintarForm(); });
+$('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; bancoOp = b.dataset.b; pintarForm(); });
 $('usd').addEventListener('input', () => { ultimoEditado = 'usd'; calcularForm(); });
 $('bs').addEventListener('input', () => { ultimoEditado = 'bs'; calcularForm(); });
 ['tasa', 'uMonto', 'uGan'].forEach(id => $(id).addEventListener('input', calcularForm));
@@ -732,7 +747,12 @@ $('fOp').addEventListener('submit', e => {
     if (!(num($('tasa').value) > 0)) return aviso('Escriba la tasa.');
     const u = valoresForm();
     if (!u) return aviso('Escriba el monto en dólares o el total en bolívares.');
-    op = { ...op, ...u, banco: datos.bancos.length ? datos.banco : '', gan: 0 };
+    if (bancosForm().length && !bancoOp) return aviso(tipoOp === 'Compra' ? 'Elija de qué banco salen los bolívares.' : 'Elija el banco donde entran los bolívares.');
+    if (tipoOp === 'Compra' && !bancosForm().length) return aviso('Para comprar necesita un banco con bolívares. Agréguelo en Cuentas → Bolívares.');
+    const falta = faltaBs(u.bs);
+    if (falta) return aviso(falta);
+    op = { ...op, ...u, banco: bancoOp, gan: 0 };
+    if (tipoOp === 'Venta') datos.banco = bancoOp;
   }
   const antes = JSON.stringify(datos);
   const grupo = grupoDe(tipoOp);
