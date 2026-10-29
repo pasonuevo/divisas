@@ -56,6 +56,7 @@ header h1 small{display:block;font-size:11px;letter-spacing:.18em;color:var(--or
 .pago{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}
 .pago .btn{padding:12px 16px;font-size:16px}
 .hist{margin-top:10px;font-size:14px}
+.hist [data-par]{cursor:pointer}
 .hist div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
 .hist span{color:var(--muted);min-width:0;overflow-wrap:anywhere}
 .hist b{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
@@ -129,7 +130,7 @@ dialog::backdrop{background:var(--sombra)}
 dialog form{padding:18px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px))}
 dialog h3{margin:0 0 14px;font-size:20px}
 label{display:block;font-size:14px;color:var(--muted);margin:12px 0 6px}
-input,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:17px}
+input,textarea,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:17px}
 input.num{font-size:20px;font-weight:600;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 textarea{min-height:56px;resize:vertical}
 .dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
@@ -305,10 +306,12 @@ textarea{min-height:56px;resize:vertical}
     <h3 id="ctaTitulo"></h3>
     <div id="bloquePago" hidden>
       <label for="pagoMonto" id="pagoLbl"></label>
-      <div class="pago">
-        <input id="pagoMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
-        <button class="btn prin" type="button" id="pagoBtn"></button>
-      </div>
+      <input id="pagoMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
+      <label for="pagoDestino" id="destLbl"></label>
+      <select id="pagoDestino"></select>
+      <input id="pagoNueva" autocomplete="off" autocapitalize="words" placeholder="Nombre de la cuenta (ej: Zelle, Efectivo)" hidden style="margin-top:8px">
+      <p class="nota" id="pagoNota"></p>
+      <button class="btn prin" type="button" id="pagoBtn" style="width:100%;margin-top:8px"></button>
     </div>
     <div class="hist" id="ctaHist"></div>
     <div id="bloqueEditar">
@@ -341,7 +344,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (2): las ventas y compras mueven el banco y crean las cuentas por cobrar y por pagar.</p>
+      <p class="nota">Versión del 29 de octubre (3): cobros y pagos a sus cuentas o a terceros.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -434,10 +437,10 @@ function cuentaDe(grupo, nombre) {
   c.movs = c.movs || [];
   return c;
 }
-function mover(grupo, nombre, monto, desc, opId, fecha) {
+function mover(grupo, nombre, monto, desc, opId, fecha, par) {
   const c = cuentaDe(grupo, nombre);
   c.saldo = red(c.saldo + monto, 2);
-  c.movs.push({ id: nuevoId(), fecha: fecha || ahoraLocal(), monto: red(monto, 2), desc, opId: opId || '' });
+  c.movs.push({ id: nuevoId(), fecha: fecha || ahoraLocal(), monto: red(monto, 2), desc, opId: opId || '', par: par || '' });
   c.actualizado = new Date().toISOString();
 }
 // Quita de las cuentas lo que generó una operación (al anularla).
@@ -445,6 +448,13 @@ function revertir(opId) {
   datos.cuentas.forEach(c => {
     (c.movs || []).filter(m => m.opId === opId).forEach(m => { c.saldo = red(c.saldo - m.monto, 2); });
     if (c.movs) c.movs = c.movs.filter(m => m.opId !== opId);
+  });
+}
+// Deshace un cobro o pago: quita sus dos lados.
+function deshacer(par) {
+  datos.cuentas.forEach(c => {
+    (c.movs || []).filter(m => m.par === par).forEach(m => { c.saldo = red(c.saldo - m.monto, 2); });
+    if (c.movs) c.movs = c.movs.filter(m => m.par !== par);
   });
 }
 const esDeuda = g => g === 'Por cobrar' || g === 'Por pagar';
@@ -778,6 +788,7 @@ $('cerrarDet').addEventListener('click', () => $('dlgDet').close());
 let ctaActual = null;
 function abrirCta(c) {
   ctaActual = c;
+  parPendiente = '';
   const G = GRUPOS.find(x => x.g === c.grupo);
   $('ctaTitulo').textContent = c.nombre ? c.nombre : G.nuevo;
   $('ctaNombre').value = c.nombre || ''; $('ctaNombre').placeholder = G.ej;
@@ -791,7 +802,7 @@ function abrirCta(c) {
   const movs = c.nombre ? (c.movs || []).slice().reverse().slice(0, 15) : [];
   const enBs = c.grupo === 'Bolívares';
   // En bancos lo que entra es verde; en deudas lo verde es lo que se paga o cobra.
-  $('ctaHist').innerHTML = movs.map(m => `<div><span>${esc(m.fecha.slice(8, 10) + '/' + m.fecha.slice(5, 7))} · ${esc(m.desc)}</span><b class="${esDeuda(c.grupo) ? (m.monto < 0 ? 'pos' : '') : (m.monto < 0 ? 'neg' : 'pos')}">${m.monto > 0 ? '+' : ''}${enBs ? bsf(m.monto) : usd(m.monto)}</b></div>`).join('');
+  $('ctaHist').innerHTML = (movs.some(m => m.par) ? '<p class="nota">Para deshacer un cobro o un pago, tóquelo dos veces.</p>' : '') + movs.map(m => `<div${m.par ? ` data-par="${esc(m.par)}"` : ''}><span>${esc(m.fecha.slice(8, 10) + '/' + m.fecha.slice(5, 7))} · ${esc(m.desc)}</span><b class="${esDeuda(c.grupo) ? (m.monto < 0 ? 'pos' : '') : (m.monto < 0 ? 'neg' : 'pos')}">${m.monto > 0 ? '+' : ''}${enBs ? bsf(m.monto) : usd(m.monto)}</b></div>`).join('');
   $('bloquePago').hidden = !conPago;
   $('bloqueEditar').classList.toggle('editar', conPago || movs.length > 0);
   if (conPago) {
@@ -801,17 +812,77 @@ function abrirCta(c) {
     $('pagoBtn').textContent = paga ? 'Pagué' : 'Me pagó';
     $('pagoMonto').value = '';
     $('pagoMonto').placeholder = c.saldo > 0 ? f2.format(c.saldo) : '0.00';
+    $('destLbl').textContent = paga ? '¿De dónde salió el dinero?' : '¿A dónde fue el dinero?';
+    // Un cobro va a una cuenta suya o directo a alguien a quien usted le debe;
+    // un pago sale de una cuenta suya o lo hace directo alguien que le debe a usted.
+    const bancos = datos.cuentas.filter(x => x.grupo === 'Banco').sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    const otros = datos.cuentas.filter(x => x.grupo === (paga ? 'Por cobrar' : 'Por pagar') && x.saldo > 0.005).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    $('pagoDestino').innerHTML = '<option value="">Elija…</option>' +
+      `<optgroup label="${paga ? 'De una cuenta mía en dólares' : 'A una cuenta mía en dólares'}">` +
+      bancos.map(x => `<option value="b:${esc(x.id)}">${esc(x.nombre)} · ${usd(x.saldo)}</option>`).join('') +
+      '<option value="nb">＋ Otra cuenta mía (nueva)</option></optgroup>' +
+      (otros.length ? `<optgroup label="${paga ? 'Lo pagó por mí alguien que me debe' : 'Abonado directo a alguien a quien le debo'}">` +
+        otros.map(x => `<option value="p:${esc(x.id)}">${esc(x.nombre)} · ${paga ? 'me debe' : 'le debo'} ${usd(x.saldo)}</option>`).join('') + '</optgroup>' : '');
+    if (bancos.length === 1 && !otros.length) $('pagoDestino').value = 'b:' + bancos[0].id;
+    $('pagoNueva').value = '';
+    notaPago();
   }
   $('dlgCta').showModal();
 }
+function montoPago() { const c = ctaActual; return $('pagoMonto').value.trim() ? num($('pagoMonto').value) : (c.saldo > 0 ? c.saldo : NaN); }
+// Explica qué va a pasar antes de tocar el botón.
+function notaPago() {
+  const c = ctaActual, paga = c.grupo === 'Por pagar', d = $('pagoDestino').value, v = montoPago();
+  $('pagoNueva').hidden = d !== 'nb';
+  const m = v > 0 ? usd(v) : 'el monto';
+  let t = '';
+  if (d === 'nb' || d.startsWith('b:')) {
+    const b = d === 'nb' ? ($('pagoNueva').value.trim() || 'la cuenta nueva') : datos.cuentas.find(x => 'b:' + x.id === d).nombre;
+    t = paga ? `Baja lo que le debe a ${c.nombre} y salen ${m} de ${b}.` : `Baja lo que ${c.nombre} le debe y entran ${m} a ${b}.`;
+  } else if (d.startsWith('p:')) {
+    const o = datos.cuentas.find(x => 'p:' + x.id === d).nombre;
+    t = paga ? `${o} le pagó ${m} a ${c.nombre} por usted: baja lo que usted le debe a ${c.nombre} y lo que ${o} le debe a usted.`
+             : `${c.nombre} le pagó ${m} directo a ${o}: baja lo que ${c.nombre} le debe y lo que usted le debe a ${o}.`;
+  }
+  $('pagoNota').textContent = t ? t + ' El disponible no cambia.' : '';
+  $('avisoCta').textContent = '';
+}
+['pagoDestino', 'pagoMonto', 'pagoNueva'].forEach(id => $(id).addEventListener('input', notaPago));
 $('pagoBtn').addEventListener('click', () => {
-  const c = ctaActual;
-  const v = $('pagoMonto').value.trim() ? num($('pagoMonto').value) : (c.saldo > 0 ? c.saldo : NaN);
-  if (!(v > 0)) { $('avisoCta').textContent = 'Escriba el monto.'; return; }
-  mover(c.grupo, c.nombre, -v, c.grupo === 'Por pagar' ? 'Pago' : 'Cobro');
+  const c = ctaActual, paga = c.grupo === 'Por pagar', d = $('pagoDestino').value, v = montoPago();
+  const no = m => { $('avisoCta').textContent = m; };
+  if (!(v > 0)) return no('Escriba el monto.');
+  if (v > c.saldo + 0.005) return no('Es más de lo que ' + (paga ? 'le debe a ' + c.nombre : c.nombre + ' le debe') + ' (' + usd(c.saldo) + ').');
+  if (!d) return no(paga ? 'Elija de dónde salió el dinero.' : 'Elija a dónde fue el dinero.');
+  const par = nuevoId();
+  if (d === 'nb' || d.startsWith('b:')) {
+    let b;
+    if (d === 'nb') {
+      const n = $('pagoNueva').value.trim();
+      if (!n) return no('Escriba el nombre de la cuenta nueva.');
+      if (datos.cuentas.some(x => x.grupo === 'Banco' && x.nombre.toLowerCase() === n.toLowerCase())) return no('Ya tiene una cuenta con ese nombre: elíjala en la lista.');
+      b = cuentaDe('Banco', n);
+    } else b = datos.cuentas.find(x => 'b:' + x.id === d);
+    if (paga && v > b.saldo + 0.005) return no(b.nombre + ' solo tiene ' + usd(b.saldo) + '. Corrija su saldo en Cuentas o elija otra.');
+    mover('Banco', b.nombre, paga ? -v : v, (paga ? 'Pago a ' : 'Cobro de ') + c.nombre, '', '', par);
+    mover(c.grupo, c.nombre, -v, (paga ? 'Pago desde ' : 'Cobro a ') + b.nombre, '', '', par);
+  } else {
+    const o = datos.cuentas.find(x => 'p:' + x.id === d);
+    if (v > o.saldo + 0.005) return no((paga ? o.nombre + ' solo le debe ' : 'A ' + o.nombre + ' solo le debe ') + usd(o.saldo) + '.');
+    mover(o.grupo, o.nombre, -v, paga ? 'Le pagó a ' + c.nombre + ' por mí' : 'Abono de ' + c.nombre, '', '', par);
+    mover(c.grupo, c.nombre, -v, paga ? 'Pagado por ' + o.nombre : 'Abonado a ' + o.nombre, '', '', par);
+  }
   guardarDatos();
   pintar();
   abrirCta(datos.cuentas.find(x => x.id === c.id));
+});
+let parPendiente = '';
+$('ctaHist').addEventListener('click', e => {
+  const f = e.target.closest('[data-par]'); if (!f) return;
+  if (parPendiente !== f.dataset.par) { parPendiente = f.dataset.par; $('avisoCta').textContent = 'Toque otra vez ese movimiento para deshacerlo (se quita de las dos cuentas).'; return; }
+  deshacer(parPendiente); parPendiente = '';
+  guardarDatos(); pintar();
+  abrirCta(datos.cuentas.find(x => x.id === ctaActual.id));
 });
 $('grupos').addEventListener('click', e => {
   const a = e.target.closest('[data-grupo]');
