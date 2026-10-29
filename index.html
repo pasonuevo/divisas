@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Divisas</title>
+<meta name="description" content="Registro de compra y venta de dólares: utilidad del mes, bancos, cuentas por cobrar y por pagar.">
+<meta name="theme-color" content="#2B2866">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Divisas">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Libro de cambio en el teléfono: cabecera fija con pestañas, tarjetas apiladas, cifras en columnas. */
+:root{
+  --bg:#F4F3F8;--surface:#FFFFFF;--fg:#1F1E2A;--muted:#5E5C6B;--line:#D9D7E2;
+  --prin:#2B2866;--prin-fg:#F5F2E6;--btn:#2B2866;--oro:#E2B44B;--tint:#E7E5F2;--on:#2B2866;
+  --warn:#A2482B;--ok:#2F6B4A;--venta:#8A4B12;--pend-bg:#F2E3C4;--pend-fg:#7A5418;--sombra:rgba(0,0,0,.45);
+  --sans:"IBM Plex Sans",-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#131219;--surface:#1C1B24;--fg:#E8E7EF;--muted:#A6A4B3;--line:#302E3B;--btn:#4A46A0;--on:#9C98E8;
+  --tint:#25233A;--warn:#E58A68;--ok:#7FC39B;--venta:#E9A866;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#131219;--surface:#1C1B24;--fg:#E8E7EF;--muted:#A6A4B3;--line:#302E3B;--btn:#4A46A0;--on:#9C98E8;
+  --tint:#25233A;--warn:#E58A68;--ok:#7FC39B;--venta:#E9A866;--pend-bg:#4A3B1E;--pend-fg:#F2D49A;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);-webkit-text-size-adjust:100%}
+body{font-size:16px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--prin)}
+button,input,textarea{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--oro);outline-offset:2px}
+.num-f{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{background:var(--prin);color:var(--prin-fg);padding:12px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.barra{display:flex;align-items:center;gap:10px;max-width:640px;margin:0 auto}
+header h1{margin:0;font-size:19px;font-weight:600;letter-spacing:.02em;flex:1}
+header h1 small{display:block;font-size:11px;letter-spacing:.18em;color:var(--oro);font-weight:500}
+.estado{font-size:12px;padding:5px 9px;border-radius:99px;background:rgba(255,255,255,.12);white-space:nowrap}
+.estado.mal{background:#A2482B}
+.icono{background:none;border:0;color:var(--prin-fg);font-size:22px;padding:4px 6px;line-height:1;cursor:pointer}
+.bienvenida{background:var(--tint);border-radius:14px;padding:14px 16px;margin-bottom:14px;font-size:15px;line-height:1.5}
+.bienvenida b{display:block;font-size:17px;margin-bottom:4px}
+.bienvenida p{margin:6px 0 0}
+.ajustes-bloque{border-top:1px solid var(--line);margin-top:16px;padding-top:6px}
+.ajustes-bloque .btn{width:100%;margin-top:8px}
+nav{display:flex;max-width:640px;margin:10px auto 0}
+nav button{flex:1;background:none;border:0;color:var(--prin-fg);opacity:.7;padding:10px 4px 11px;font-size:15px;font-weight:600;border-bottom:3px solid transparent;cursor:pointer}
+nav button.on{opacity:1;border-bottom-color:var(--oro)}
+main{max-width:640px;margin:0 auto;padding-block:14px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.mes{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mes b{font-size:17px;text-transform:capitalize}
+.mes button{background:var(--surface);border:1px solid var(--line);border-radius:10px;width:44px;height:38px;font-size:20px;line-height:1;cursor:pointer}
+.mes button:disabled{opacity:.35;cursor:default}
+.tarjeta{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.aviso-db{background:var(--pend-bg);color:var(--pend-fg);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:15px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;text-align:center}
+.kpis .et{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpis .v{font-size:17px;font-weight:600;margin-top:2px;overflow-wrap:anywhere}
+.grande{text-align:center}
+.grande .et{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.grande .num{font-size:40px;font-weight:600;line-height:1.15;margin:4px 0;overflow-wrap:anywhere}
+.grande .sub{font-size:14px;color:var(--muted)}
+.acciones{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.btn{border:0;border-radius:12px;padding:16px 12px;font-size:17px;font-weight:600;background:var(--tint);color:var(--fg);cursor:pointer}
+.btn.prin{background:var(--btn);color:var(--prin-fg);font-size:18px}
+.btn.peligro{background:var(--warn);color:var(--prin-fg)}
+.btn.ancho{grid-column:1/-1}
+.btn:active{opacity:.75}
+.btn:disabled{opacity:.5}
+h2{font-size:15px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px;text-wrap:balance}
+h2 small{font-weight:400;color:var(--muted);font-size:13px;text-align:right}
+.dia{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px;display:flex;justify-content:space-between;gap:8px}
+.dia:first-child{margin-top:0}
+.op{display:flex;gap:10px;padding:10px 0;border:0;border-bottom:1px solid var(--line);align-items:flex-start;width:100%;background:none;text-align:left;cursor:pointer}
+.op .que{flex:1;min-width:0}
+.op .que div{font-weight:600;overflow-wrap:anywhere}
+.op .que p{margin:2px 0 0;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.op .cuanto{text-align:right;white-space:nowrap}
+.op .cuanto b{display:block;font-size:15px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.op .cuanto small{font-size:12px;color:var(--muted);font-family:var(--mono)}
+.compra b{color:var(--ok)}.venta b{color:var(--venta)}
+.pos{color:var(--ok)!important}.neg{color:var(--warn)!important}
+.op.anulado{opacity:.45}.op.anulado b,.op.anulado .que div{text-decoration:line-through}
+.chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px;background:var(--tint);color:var(--muted);margin-left:6px;vertical-align:1px}
+.vacio{color:var(--muted);text-align:center;padding:12px 0;font-size:15px}
+.mas-btn{width:100%;margin-top:10px;background:none;border:1px solid var(--line);border-radius:10px;padding:10px;color:var(--muted);cursor:pointer}
+.tabla{width:100%;border-collapse:collapse;font-size:15px}
+.tabla td{padding:7px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.tabla td + td{text-align:right;font-weight:600;padding-left:8px;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
+.tabla tr:last-child td{border-bottom:0}
+.tabla th{font-size:12px;color:var(--muted);font-weight:500;text-align:right;padding:0 0 4px 8px}
+.tabla th:first-child{text-align:left;padding-left:0}
+.tabla.tres td:nth-child(2){font-weight:400}
+.tabla tr.tot td{border-top:2px solid var(--line);font-weight:700}
+.desliza{overflow-x:auto}
+.barras{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:8px 10px;align-items:center;font-size:14px;margin-top:4px}
+.barras .b{height:12px;background:var(--tint);border-radius:6px;overflow:hidden}
+.barras .b i{display:block;height:100%;border-radius:6px}
+.barras b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.cta{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border:0;border-bottom:1px solid var(--line);width:100%;background:none;text-align:left;font-size:16px;cursor:pointer}
+.cta span{min-width:0;overflow-wrap:anywhere}
+.cta span small{display:block;color:var(--muted);font-size:13px}
+.cta b{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-size:15px}
+.cta b small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.agregar{width:100%;margin-top:8px;background:none;border:1px dashed var(--line);border-radius:10px;padding:10px;color:var(--muted);font-size:15px;cursor:pointer}
+.disp{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:15px;padding:4px 0}
+.disp b,.disp.fin span:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.disp.fin{border-top:2px solid var(--line);margin-top:6px;padding-top:10px;font-size:20px;font-weight:700}
+dialog{border:0;padding:0;width:100%;max-width:640px;margin:auto auto 0;border-radius:18px 18px 0 0;background:var(--surface);color:var(--fg);max-height:92vh}
+dialog::backdrop{background:var(--sombra)}
+dialog form{padding:18px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 18px) max(16px,env(safe-area-inset-left,0px))}
+dialog h3{margin:0 0 14px;font-size:20px}
+label{display:block;font-size:14px;color:var(--muted);margin:12px 0 6px}
+input,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);font-size:17px}
+input.num{font-size:20px;font-weight:600;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+textarea{min-height:56px;resize:vertical}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.opciones{display:flex;gap:8px;flex-wrap:wrap}
+.opciones button{flex:1;border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:12px 8px;font-size:16px;font-weight:600;min-width:80px;cursor:pointer}
+.opciones button.on{border-color:var(--on);background:var(--tint)}
+.calc{background:var(--tint);border-radius:10px;padding:10px 12px;margin-top:12px;font-size:15px;line-height:1.5}
+.calc:empty{display:none}
+.fila{display:flex;gap:10px;margin-top:18px}
+.fila .btn{flex:1}
+.aviso{font-size:14px;color:var(--warn);margin-top:8px;min-height:1em}
+.nota{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.4}
+.det{font-size:16px;line-height:1.7}
+.det span{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="barra">
+    <h1>Divisas<small>COMPRA Y VENTA</small></h1>
+    <span class="estado" id="estado">En este teléfono</span>
+    <button class="icono" id="ajustes" type="button" aria-label="Ajustes">⚙︎</button>
+  </div>
+  <nav id="nav">
+    <button type="button" data-v="ops" class="on">Operaciones</button>
+    <button type="button" data-v="res">Resumen</button>
+    <button type="button" data-v="ctas">Cuentas</button>
+  </nav>
+</header>
+<main>
+  <div class="aviso-db" id="avisoDb" hidden></div>
+  <div class="bienvenida" id="bienvenida" hidden>
+    <b>Bienvenido a Divisas</b>
+    Anote cada compra y venta de dólares con su tasa. La app calcula la tasa costo del mes, la ganancia de cada venta y el resumen del mes.
+    <p>En <b style="display:inline;font-size:inherit">Cuentas</b> lleve sus saldos en bancos, lo que le deben y lo que debe. Todo queda guardado solo en este teléfono: haga una copia de vez en cuando en ⚙︎ Ajustes.</p>
+  </div>
+  <div class="mes" id="mesBar">
+    <button type="button" id="mesAnt" aria-label="Mes anterior">‹</button>
+    <b id="mesNombre"></b>
+    <button type="button" id="mesSig" aria-label="Mes siguiente">›</button>
+  </div>
+
+  <section id="vOps">
+    <div class="tarjeta kpis">
+      <div><div class="et">Inventario</div><div class="v num-f" id="kInv"></div></div>
+      <div><div class="et">Tasa costo</div><div class="v num-f" id="kCosto"></div></div>
+      <div><div class="et">Ganancia</div><div class="v num-f" id="kGan"></div></div>
+    </div>
+    <div class="acciones">
+      <button class="btn prin" type="button" data-nueva="Compra">＋ Compra</button>
+      <button class="btn prin" type="button" data-nueva="Venta">－ Venta</button>
+      <button class="btn ancho" type="button" data-nueva="USDT/EF">USDT / Efectivo</button>
+    </div>
+    <section class="tarjeta">
+      <h2>Operaciones del mes <small id="nOps"></small></h2>
+      <div id="lista"></div>
+    </section>
+  </section>
+
+  <section id="vRes" hidden>
+    <section class="tarjeta grande">
+      <div class="et">Total ganancias del mes</div>
+      <div class="num num-f" id="rTotal"></div>
+      <div class="sub" id="rDiario"></div>
+    </section>
+    <section class="tarjeta">
+      <h2>Compra y venta de divisas</h2>
+      <table class="tabla">
+        <tr><td>Ganancia realizada</td><td id="rGanBs"></td></tr>
+        <tr><td>Ganancia en dólares</td><td id="rGanUsd"></td></tr>
+        <tr><td>Inventario actual</td><td id="rInv"></td></tr>
+        <tr><td>Spread promedio</td><td id="rSpread"></td></tr>
+        <tr><td>Margen bruto promedio</td><td id="rMargen"></td></tr>
+      </table>
+    </section>
+    <section class="tarjeta">
+      <h2>Compras <small>entradas</small></h2>
+      <table class="tabla">
+        <tr><td>Total USD comprados</td><td id="cUsd"></td></tr>
+        <tr><td>Tasa promedio de compra</td><td id="cTasa"></td></tr>
+        <tr><td>Bolívares invertidos</td><td id="cBs"></td></tr>
+        <tr><td>N° de compras</td><td id="cN"></td></tr>
+      </table>
+    </section>
+    <section class="tarjeta">
+      <h2>Ventas <small>salidas</small></h2>
+      <table class="tabla">
+        <tr><td>Total USD vendidos</td><td id="vUsd"></td></tr>
+        <tr><td>Tasa promedio de venta</td><td id="vTasa"></td></tr>
+        <tr><td>Bolívares recibidos</td><td id="vBs"></td></tr>
+        <tr><td>N° de ventas</td><td id="vN"></td></tr>
+      </table>
+    </section>
+    <section class="tarjeta">
+      <h2>Volumen operado <small>USD</small></h2>
+      <div class="barras" id="rBarras"></div>
+    </section>
+    <section class="tarjeta">
+      <h2>Efectivo y USDT</h2>
+      <div id="rUsdt"></div>
+    </section>
+    <section class="tarjeta">
+      <h2>Clientes que más dejaron <small>ganancia en ventas</small></h2>
+      <div id="rClientes"></div>
+    </section>
+  </section>
+
+  <section id="vCtas" hidden>
+    <section class="tarjeta">
+      <h2>Disponible</h2>
+      <div id="dResumen"></div>
+    </section>
+    <div id="grupos"></div>
+  </section>
+</main>
+
+<dialog id="dlgOp">
+  <form method="dialog" id="fOp">
+    <h3 id="opTitulo">Nueva operación</h3>
+    <div class="opciones" id="tipos">
+      <button type="button" data-t="Compra">Compra</button>
+      <button type="button" data-t="Venta">Venta</button>
+      <button type="button" data-t="USDT/EF">USDT / EF</button>
+    </div>
+    <label for="cliente">Cliente / contraparte</label>
+    <input id="cliente" list="clientes" autocomplete="off" autocapitalize="words">
+    <datalist id="clientes"></datalist>
+    <div id="bloqueDiv">
+      <div class="dos">
+        <div><label for="usd">Monto (USD)</label><input id="usd" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+        <div><label for="tasa">Tasa (Bs/USD)</label><input id="tasa" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+      </div>
+      <label for="bs">Total (Bs)</label>
+      <input id="bs" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
+      <label id="lblBancos">Banco</label>
+      <div class="opciones" id="bancos"></div>
+    </div>
+    <div id="bloqueUsdt" hidden>
+      <div class="dos">
+        <div><label for="uMonto">Venta (USD)</label><input id="uMonto" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+        <div><label for="uGan">Ganancia (USD)</label><input id="uGan" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00"></div>
+      </div>
+    </div>
+    <div class="calc" id="calc"></div>
+    <div class="aviso" id="avisoOp"></div>
+    <label for="notaOp">Nota</label>
+    <textarea id="notaOp"></textarea>
+    <label for="fecha">Fecha y hora</label>
+    <input id="fecha" type="datetime-local">
+    <div class="fila">
+      <button class="btn" type="button" id="cancelarOp">Cancelar</button>
+      <button class="btn prin" type="submit" value="ok" id="guardarOp">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgDet">
+  <form method="dialog" id="fDet">
+    <h3 id="detTitulo"></h3>
+    <div class="det" id="detTxt"></div>
+    <p class="nota" id="detNota"></p>
+    <div class="fila">
+      <button class="btn" type="button" id="cerrarDet">Cerrar</button>
+      <button class="btn peligro" type="button" id="btnAnular">Anular</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgCta">
+  <form method="dialog" id="fCta">
+    <h3 id="ctaTitulo"></h3>
+    <label for="ctaNombre">Nombre</label>
+    <input id="ctaNombre" autocomplete="off" autocapitalize="words">
+    <label for="ctaSaldo" id="ctaLblSaldo">Saldo</label>
+    <input id="ctaSaldo" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
+    <label for="ctaNota">Nota</label>
+    <textarea id="ctaNota"></textarea>
+    <div class="aviso" id="avisoCta"></div>
+    <div class="fila">
+      <button class="btn" type="button" id="borrarCta">Borrar</button>
+      <button class="btn" type="button" id="cancelarCta">Cancelar</button>
+      <button class="btn prin" type="submit" value="ok">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgAjustes">
+  <form method="dialog" id="fAjustes">
+    <h3>Ajustes</h3>
+    <label for="aBancos">Sus bancos en bolívares (uno por línea)</label>
+    <textarea id="aBancos" rows="5"></textarea>
+    <p class="nota">Aparecen como botones al anotar una compra o una venta.</p>
+    <div class="fila">
+      <button class="btn" type="button" id="cerrarAjustes">Cerrar</button>
+      <button class="btn prin" type="submit" value="ok">Guardar bancos</button>
+    </div>
+    <div class="ajustes-bloque">
+      <label>Copia de seguridad</label>
+      <p class="nota" id="aResumen"></p>
+      <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
+      <button class="btn" type="button" id="exportar">Descargar copia</button>
+      <button class="btn" type="button" id="importar">Cargar una copia</button>
+      <input type="file" id="archivo" accept="application/json,.json" hidden>
+    </div>
+    <div class="ajustes-bloque">
+      <button class="btn peligro" type="button" id="borrarTodo">Borrar todo y empezar de cero</button>
+    </div>
+    <div class="aviso" id="avisoAjustes"></div>
+  </form>
+</dialog>
+
+<script>
+const BANCOS_INICIALES = ['Banesco', 'Mercantil', 'Venezuela', 'Provincial', 'BNC'];
+const GRUPOS = [
+  { g: 'Banco', titulo: 'Cuentas en dólares', nuevo: 'Nueva cuenta en dólares', ej: 'Ej: Zelle, Wells Fargo, Efectivo, Binance' },
+  { g: 'Bolívares', titulo: 'Bolívares', nuevo: 'Nueva cuenta en bolívares', ej: 'Ej: Banesco, Mercantil' },
+  { g: 'Por cobrar', titulo: 'Cuentas por cobrar', nuevo: 'Nueva cuenta por cobrar', ej: 'Quién le debe' },
+  { g: 'Por pagar', titulo: 'Cuentas por pagar', nuevo: 'Nueva cuenta por pagar', ej: 'A quién le debe' }
+];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const CLAVE = 'divisas.datos';
+
+const $ = id => document.getElementById(id);
+const f2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usd = n => (n < 0 ? '−$' : '$') + f2.format(Math.abs(n));
+const bsf = n => (n < 0 ? '−' : '') + f2.format(Math.abs(n)) + ' Bs';
+const tasa = n => n ? f2.format(n) : '—';
+const pct = n => (n * 100).toFixed(2) + '%';
+
+// Todo se guarda en este teléfono: operaciones, cuentas, clientes y bancos.
+function vacio() { return { version: 1, ops: [], cuentas: [], clientes: [], bancos: BANCOS_INICIALES.slice(), banco: BANCOS_INICIALES[0] }; }
+function leerDatos() {
+  try { const t = localStorage.getItem(CLAVE); if (t) return { ...vacio(), ...JSON.parse(t) }; } catch (e) {}
+  return vacio();
+}
+let datos = leerDatos();
+let errorGuardar = false;
+function guardarDatos() {
+  try { localStorage.setItem(CLAVE, JSON.stringify(datos)); errorGuardar = false; }
+  catch (e) { errorGuardar = true; }
+  pintarEstado();
+  return !errorGuardar;
+}
+
+let vista = 'ops';
+let mes = mesDe(ahoraLocal());
+let mostrar = 60;
+
+function ahoraLocal() {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+function mesDe(iso) { return iso.slice(0, 7); }
+function nuevoId() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// Lee números escritos como 1,003.95 o 1.003,95 o 980,5.
+function num(s) {
+  let t = String(s || '').replace(/[^\d.,-]/g, '');
+  if (!t) return NaN;
+  const c = t.lastIndexOf(','), p = t.lastIndexOf('.');
+  if (c >= 0 && p >= 0) t = c > p ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  else if (c >= 0) t = /^-?\d{1,3}(,\d{3})+$/.test(t) ? t.replace(/,/g, '') : t.replace(',', '.');
+  return Number(t);
+}
+const red = (n, d) => Math.round(n * 10 ** d) / 10 ** d;
+function nombreMes(m) { const [y, mm] = m.split('-'); return MESES[Number(mm) - 1] + ' ' + y; }
+function mesMas(m, d) { const [y, mm] = m.split('-').map(Number); const x = new Date(y, mm - 1 + d, 1); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); }
+function nombreDia(iso) {
+  const hoy = ahoraLocal().slice(0, 10);
+  const ayer = new Date(Date.now() - 864e5); ayer.setMinutes(ayer.getMinutes() - ayer.getTimezoneOffset());
+  if (iso.slice(0, 10) === hoy) return 'Hoy';
+  if (iso.slice(0, 10) === ayer.toISOString().slice(0, 10)) return 'Ayer';
+  return new Date(iso.slice(0, 10) + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+const signo = n => n > 0.005 ? 'pos' : n < -0.005 ? 'neg' : '';
+
+function operacionesDe(m) {
+  return datos.ops.filter(o => mesDe(o.fecha) === m).sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0);
+}
+
+// La tasa costo es el promedio ponderado de todas las compras del mes;
+// cada venta gana (tasa de venta − tasa costo) × monto.
+function resumen(m) {
+  const ops = operacionesDe(m).filter(o => !o.anulado);
+  const r = { ops, c: { usd: 0, bs: 0, n: 0 }, v: { usd: 0, bs: 0, n: 0 }, u: { venta: 0, gan: 0, porCliente: {} }, ganBs: 0, porCliente: {} };
+  ops.forEach(o => {
+    if (o.tipo === 'Compra') { r.c.usd += o.usd; r.c.bs += o.bs; r.c.n++; }
+    else if (o.tipo === 'Venta') { r.v.usd += o.usd; r.v.bs += o.bs; r.v.n++; }
+    else if (o.tipo === 'USDT/EF') {
+      r.u.venta += o.usd; r.u.gan += o.gan;
+      const k = o.cliente || '—'; const x = r.u.porCliente[k] = r.u.porCliente[k] || { venta: 0, gan: 0 };
+      x.venta += o.usd; x.gan += o.gan;
+    }
+  });
+  r.costo = r.c.usd ? r.c.bs / r.c.usd : 0;
+  r.tventa = r.v.usd ? r.v.bs / r.v.usd : 0;
+  r.ganancia = o => o.tipo === 'Venta' && r.costo ? o.bs - o.usd * r.costo : 0;
+  ops.forEach(o => {
+    if (o.tipo !== 'Venta') return;
+    const g = r.ganancia(o); r.ganBs += g;
+    const k = o.cliente || '—'; r.porCliente[k] = (r.porCliente[k] || 0) + g;
+  });
+  r.inv = r.c.usd - r.v.usd;
+  r.spread = r.tventa && r.costo ? r.tventa - r.costo : 0;
+  r.margen = r.tventa ? r.spread / r.tventa : 0;
+  r.ganUsd = r.tventa ? r.ganBs / r.tventa : 0;
+  r.total = r.ganUsd + r.u.gan;
+  const hoy = ahoraLocal().slice(0, 10);
+  const [y, mm] = m.split('-').map(Number);
+  r.dias = m === mesDe(hoy) ? Number(hoy.slice(8, 10)) : new Date(y, mm, 0).getDate();
+  r.diario = r.dias ? r.total / r.dias : 0;
+  return r;
+}
+
+function pintar() {
+  pintarEstado();
+  ['ops', 'res', 'ctas'].forEach(v => { $('v' + v[0].toUpperCase() + v.slice(1)).hidden = vista !== v; });
+  [...$('nav').children].forEach(b => b.classList.toggle('on', b.dataset.v === vista));
+  $('mesBar').hidden = vista === 'ctas';
+  $('mesNombre').textContent = nombreMes(mes);
+  $('mesSig').disabled = mes >= mesDe(ahoraLocal());
+  if (vista === 'ops') pintarOps();
+  else if (vista === 'res') pintarRes();
+  else pintarCtas();
+}
+
+function pintarOps() {
+  const r = resumen(mes);
+  $('kInv').textContent = usd(r.inv);
+  $('kCosto').textContent = tasa(r.costo);
+  $('kGan').textContent = usd(r.total);
+  $('kGan').className = 'v num-f ' + signo(r.total);
+  $('bienvenida').hidden = datos.ops.length > 0;
+  const todas = operacionesDe(mes);
+  $('nOps').textContent = r.ops.length ? r.ops.length + (r.ops.length === 1 ? ' operación' : ' operaciones') : '';
+  const rec = todas.slice().reverse();
+  if (!rec.length) {
+    $('lista').innerHTML = '<div class="vacio">No hay operaciones en ' + esc(nombreMes(mes)) + '.<br>Toque Compra, Venta o USDT / Efectivo para anotar la primera.</div>';
+    return;
+  }
+  const ganDia = {};
+  r.ops.forEach(o => { if (o.tipo === 'Venta') ganDia[o.fecha.slice(0, 10)] = (ganDia[o.fecha.slice(0, 10)] || 0) + r.ganancia(o); });
+  let html = '', diaAnt = '';
+  rec.slice(0, mostrar).forEach(o => {
+    const dia = o.fecha.slice(0, 10);
+    if (dia !== diaAnt) {
+      const g = ganDia[dia];
+      html += `<div class="dia"><span>${esc(nombreDia(o.fecha))}</span>${g ? `<span class="num-f ${signo(g)}">${bsf(g)}</span>` : ''}</div>`;
+      diaAnt = dia;
+    }
+    const chips = o.anulado ? '<span class="chip">anulada</span>' : '';
+    let sub, cuanto, cls = '';
+    if (o.tipo === 'USDT/EF') {
+      sub = 'USDT / Efectivo';
+      cuanto = `<b>${usd(o.usd)}</b><small class="pos">gana ${usd(o.gan)}</small>`;
+    } else {
+      sub = o.tipo + ' · ' + (o.banco || '—') + ' · ' + tasa(o.tasa) + ' · ' + bsf(o.bs);
+      if (o.tipo === 'Venta' && !o.anulado && r.costo) {
+        const g = r.ganancia(o);
+        cuanto = `<b>${usd(o.usd)}</b><small class="${signo(g)}">${bsf(g)} · ${pct(o.bs ? g / o.bs : 0)}</small>`;
+      } else cuanto = `<b>${usd(o.usd)}</b>`;
+      cls = o.tipo === 'Compra' ? 'compra' : 'venta';
+    }
+    if (o.nota) sub += ' · ' + o.nota;
+    html += `<button type="button" class="op${o.anulado ? ' anulado' : ''}" data-id="${esc(o.id)}">
+      <span class="que"><div>${esc(o.cliente || '—')}${chips}</div><p>${esc(sub)}</p></span>
+      <span class="cuanto ${cls}">${cuanto}</span></button>`;
+  });
+  if (rec.length > mostrar) html += '<button type="button" class="mas-btn" id="verMas">Ver más</button>';
+  $('lista').innerHTML = html;
+}
+
+function pintarRes() {
+  const r = resumen(mes);
+  $('rTotal').textContent = usd(r.total);
+  $('rTotal').className = 'num num-f ' + signo(r.total);
+  $('rDiario').textContent = 'Divisas ' + usd(r.ganUsd) + ' + USDT/EF ' + usd(r.u.gan) + ' · ' + r.dias + ' días · promedio diario ' + usd(r.diario);
+  $('rGanBs').textContent = bsf(r.ganBs);
+  $('rGanUsd').textContent = usd(r.ganUsd);
+  $('rInv').textContent = usd(r.inv);
+  $('rSpread').textContent = tasa(r.spread);
+  $('rMargen').textContent = pct(r.margen);
+  $('cUsd').textContent = usd(r.c.usd); $('cTasa').textContent = tasa(r.costo); $('cBs').textContent = bsf(r.c.bs); $('cN').textContent = r.c.n;
+  $('vUsd').textContent = usd(r.v.usd); $('vTasa').textContent = tasa(r.tventa); $('vBs').textContent = bsf(r.v.bs); $('vN').textContent = r.v.n;
+  const max = Math.max(1, r.c.usd, r.v.usd);
+  $('rBarras').innerHTML =
+    `<span>Compras</span><div class="b"><i style="width:${r.c.usd / max * 100}%;background:var(--ok)"></i></div><b>${usd(r.c.usd)}</b>` +
+    `<span>Ventas</span><div class="b"><i style="width:${r.v.usd / max * 100}%;background:var(--venta)"></i></div><b>${usd(r.v.usd)}</b>`;
+  const us = Object.entries(r.u.porCliente).sort((a, b) => b[1].gan - a[1].gan);
+  $('rUsdt').innerHTML = us.length
+    ? '<div class="desliza"><table class="tabla tres"><tr><th>Cliente</th><th>Venta</th><th>Ganancia</th></tr>' +
+      us.map(([c, x]) => `<tr><td>${esc(c)}</td><td>${usd(x.venta)}</td><td>${usd(x.gan)}</td></tr>`).join('') +
+      `<tr class="tot"><td>Total</td><td>${usd(r.u.venta)}</td><td>${usd(r.u.gan)}</td></tr></table></div>` +
+      `<p class="nota">Margen bruto USDT y efectivo: ${pct(r.u.venta ? r.u.gan / r.u.venta : 0)}</p>`
+    : '<div class="vacio">Sin operaciones de USDT o efectivo este mes.</div>';
+  const cl = Object.entries(r.porCliente).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  $('rClientes').innerHTML = cl.length
+    ? '<table class="tabla">' + cl.map(([c, g]) => `<tr><td>${esc(c)}</td><td class="${signo(g)}">${bsf(g)}</td></tr>`).join('') + '</table>'
+    : '<div class="vacio">Sin ventas este mes.</div>';
+}
+
+// Los bolívares se pasan a dólares con la tasa promedio de venta del mes.
+function tasaBs() {
+  const hoy = mesDe(ahoraLocal());
+  const r = resumen(hoy);
+  if (r.tventa) return { t: r.tventa, de: 'tasa promedio de venta de ' + nombreMes(hoy) };
+  const mAnt = mesMas(hoy, -1), ant = resumen(mAnt);
+  if (ant.tventa) return { t: ant.tventa, de: 'tasa promedio de venta de ' + nombreMes(mAnt) };
+  if (r.costo) return { t: r.costo, de: 'tasa costo del mes' };
+  return { t: 0, de: 'sin tasa todavía' };
+}
+
+function pintarCtas() {
+  const { t, de } = tasaBs();
+  const tot = {};
+  $('grupos').innerHTML = GRUPOS.map(G => {
+    const lista = datos.cuentas.filter(c => c.grupo === G.g).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    const enBs = G.g === 'Bolívares';
+    const suma = lista.reduce((s, c) => s + c.saldo, 0);
+    tot[G.g] = enBs ? (t ? suma / t : 0) : suma;
+    const items = lista.map(c => `<button type="button" class="cta" data-cta="${esc(c.id)}">
+        <span>${esc(c.nombre)}${c.nota ? `<small>${esc(c.nota)}</small>` : ''}</span>
+        <b class="${c.saldo < 0 ? 'neg' : ''}">${enBs ? bsf(c.saldo) + (t ? `<small>${usd(c.saldo / t)}</small>` : '') : usd(c.saldo)}</b></button>`).join('');
+    return `<section class="tarjeta"><h2>${esc(G.titulo)} <small class="num-f">${enBs ? bsf(suma) + (t ? ' · ' + usd(tot[G.g]) : '') : usd(suma)}</small></h2>
+      ${items || '<div class="vacio">Nada anotado.</div>'}
+      ${enBs && lista.length ? `<p class="nota">En dólares a ${tasa(t)} (${esc(de)}).</p>` : ''}
+      <button type="button" class="agregar" data-grupo="${esc(G.g)}">＋ Agregar</button></section>`;
+  }).join('');
+  const disp = tot['Banco'] + tot['Bolívares'] + tot['Por cobrar'] - tot['Por pagar'];
+  $('dResumen').innerHTML =
+    `<div class="disp"><span>Cuentas en dólares</span><b>${usd(tot['Banco'])}</b></div>` +
+    `<div class="disp"><span>Bolívares (en $)</span><b>${usd(tot['Bolívares'])}</b></div>` +
+    `<div class="disp"><span>Por cobrar</span><b>${usd(tot['Por cobrar'])}</b></div>` +
+    `<div class="disp"><span>Por pagar</span><b class="neg">${usd(-tot['Por pagar'])}</b></div>` +
+    `<div class="disp fin"><span>Disponible</span><span class="${signo(disp)}">${usd(disp)}</span></div>`;
+}
+
+function pintarEstado() {
+  const e = $('estado');
+  e.classList.toggle('mal', errorGuardar);
+  e.textContent = errorGuardar ? 'No se guardó' : 'En este teléfono';
+  $('avisoDb').hidden = !errorGuardar;
+  $('avisoDb').textContent = errorGuardar ? 'El teléfono no dejó guardar. Si está en modo privado, ábrala en una ventana normal; si la memoria está llena, libere espacio. Haga una copia en ⚙︎ Ajustes.' : '';
+}
+
+// Formulario de operación
+let tipoOp = 'Compra', ultimoEditado = 'usd';
+function abrirOp(tipo) {
+  tipoOp = tipo;
+  ['cliente', 'usd', 'tasa', 'bs', 'uMonto', 'uGan', 'notaOp'].forEach(id => $(id).value = '');
+  const ult = datos.ops.filter(o => !o.anulado && o.tasa).sort((a, b) => a.fecha < b.fecha ? -1 : 1).pop();
+  $('tasa').placeholder = ult ? f2.format(ult.tasa) : '0.00';
+  $('fecha').value = ahoraLocal();
+  $('avisoOp').textContent = '';
+  ultimoEditado = 'usd';
+  $('clientes').innerHTML = datos.clientes.map(n => `<option value="${esc(n)}">`).join('');
+  if (datos.bancos.indexOf(datos.banco) < 0) datos.banco = datos.bancos[0] || '';
+  $('bancos').innerHTML = datos.bancos.map(b => `<button type="button" data-b="${esc(b)}">${esc(b)}</button>`).join('');
+  $('lblBancos').hidden = $('bancos').hidden = !datos.bancos.length;
+  pintarForm();
+  $('dlgOp').showModal();
+  setTimeout(() => $('cliente').focus(), 50);
+}
+function pintarForm() {
+  $('opTitulo').textContent = tipoOp === 'USDT/EF' ? 'USDT / Efectivo' : tipoOp === 'Compra' ? 'Compra de dólares' : 'Venta de dólares';
+  [...$('tipos').children].forEach(b => b.classList.toggle('on', b.dataset.t === tipoOp));
+  [...$('bancos').children].forEach(b => b.classList.toggle('on', b.dataset.b === datos.banco));
+  $('bloqueDiv').hidden = tipoOp === 'USDT/EF';
+  $('bloqueUsdt').hidden = tipoOp !== 'USDT/EF';
+  calcularForm();
+}
+// Monto × tasa = total. Si se escribe el total en bolívares, se calcula el monto.
+function calcularForm() {
+  const c = $('calc');
+  if (tipoOp === 'USDT/EF') {
+    const v = num($('uMonto').value), g = num($('uGan').value);
+    c.textContent = v > 0 && g >= 0 ? 'Margen: ' + pct(g / v) : '';
+    $('avisoOp').textContent = '';
+    return;
+  }
+  const t = num($('tasa').value);
+  if (ultimoEditado === 'bs') {
+    const b = num($('bs').value);
+    $('usd').value = b > 0 && t > 0 ? (b / t).toFixed(2) : '';
+  } else {
+    const u = num($('usd').value);
+    $('bs').value = u > 0 && t > 0 ? (u * t).toFixed(2) : '';
+  }
+  const u = valoresForm();
+  if (!u) { c.textContent = ''; $('avisoOp').textContent = ''; return; }
+  const r = resumen(mesDe($('fecha').value || ahoraLocal()));
+  if (tipoOp === 'Venta') {
+    if (r.costo) {
+      const g = u.bs - u.usd * r.costo;
+      c.innerHTML = `Ganancia: <b class="num-f ${signo(g)}">${bsf(g)}</b> · ${pct(g / u.bs)} · ${usd(g / u.tasa)}<br><small>Con la tasa costo de hoy (${tasa(r.costo)}). Cambia si entran más compras este mes.</small>`;
+    } else c.textContent = 'Todavía no hay compras este mes para calcular la ganancia.';
+    $('avisoOp').textContent = u.usd > r.inv + 0.005 ? 'Ojo: es más que el inventario del mes (' + usd(r.inv) + ').' : '';
+  } else {
+    const nuevo = (r.c.bs + u.bs) / (r.c.usd + u.usd);
+    c.innerHTML = r.c.usd ? `Tasa costo del mes pasa de ${tasa(r.costo)} a <b class="num-f">${tasa(nuevo)}</b>` : `Tasa costo del mes: <b class="num-f">${tasa(nuevo)}</b>`;
+    $('avisoOp').textContent = '';
+  }
+}
+function valoresForm() {
+  const t = num($('tasa').value);
+  if (!(t > 0)) return null;
+  if (ultimoEditado === 'bs') { const b = num($('bs').value); return b > 0 ? { usd: red(b / t, 6), tasa: t, bs: red(b, 2) } : null; }
+  const u = num($('usd').value);
+  return u > 0 ? { usd: red(u, 2), tasa: t, bs: red(u * t, 2) } : null;
+}
+
+$('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; pintarForm(); });
+$('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; datos.banco = b.dataset.b; pintarForm(); });
+$('usd').addEventListener('input', () => { ultimoEditado = 'usd'; calcularForm(); });
+$('bs').addEventListener('input', () => { ultimoEditado = 'bs'; calcularForm(); });
+['tasa', 'uMonto', 'uGan'].forEach(id => $(id).addEventListener('input', calcularForm));
+$('fecha').addEventListener('change', calcularForm);
+// Si deja la tasa vacía, usa la de la última operación.
+$('tasa').addEventListener('blur', () => { if (!$('tasa').value && $('tasa').placeholder !== '0.00') { $('tasa').value = $('tasa').placeholder.replace(/,/g, ''); calcularForm(); } });
+
+$('fOp').addEventListener('submit', e => {
+  e.preventDefault();
+  const aviso = m => { $('avisoOp').textContent = m; };
+  const cliente = $('cliente').value.trim().replace(/\s+/g, ' ');
+  if (!cliente) return aviso('Escriba el cliente o la contraparte.');
+  const fecha = $('fecha').value || ahoraLocal();
+  let op = { id: nuevoId(), fecha, tipo: tipoOp, cliente, nota: $('notaOp').value.trim(), anulado: false };
+  if (tipoOp === 'USDT/EF') {
+    const v = num($('uMonto').value), g = num($('uGan').value);
+    if (!(v > 0)) return aviso('Escriba el monto de la venta.');
+    if (isNaN(g)) return aviso('Escriba la ganancia en dólares.');
+    op = { ...op, usd: red(v, 2), gan: red(g, 2), tasa: 0, bs: 0, banco: '' };
+  } else {
+    if (!(num($('tasa').value) > 0)) return aviso('Escriba la tasa.');
+    const u = valoresForm();
+    if (!u) return aviso('Escriba el monto en dólares o el total en bolívares.');
+    op = { ...op, ...u, banco: datos.bancos.length ? datos.banco : '', gan: 0 };
+  }
+  datos.ops.push(op);
+  // El cliente nuevo queda en la lista para que se autocomplete igual la próxima vez.
+  if (!datos.clientes.some(n => n.toLowerCase() === cliente.toLowerCase())) datos.clientes = datos.clientes.concat(cliente).sort((a, b) => a.localeCompare(b, 'es'));
+  if (!guardarDatos()) { datos.ops.pop(); return aviso('No se pudo guardar en el teléfono.'); }
+  $('dlgOp').close();
+  mes = mesDe(fecha); vista = 'ops'; pintar();
+});
+$('cancelarOp').addEventListener('click', () => $('dlgOp').close());
+
+// Detalle, anular y borrar (piden confirmar con un segundo toque)
+let opDet = null;
+$('lista').addEventListener('click', e => {
+  if (e.target.id === 'verMas') { mostrar += 60; pintar(); return; }
+  const b = e.target.closest('.op'); if (!b) return;
+  const o = datos.ops.find(x => x.id === b.dataset.id); if (!o) return;
+  opDet = o;
+  const r = resumen(mesDe(o.fecha));
+  $('detTitulo').textContent = (o.tipo === 'USDT/EF' ? 'USDT / Efectivo' : o.tipo) + ' · ' + (o.cliente || '—');
+  const lin = [['Fecha', new Date(o.fecha).toLocaleString('es-VE', { dateStyle: 'medium', timeStyle: 'short' })]];
+  if (o.tipo === 'USDT/EF') lin.push(['Venta', usd(o.usd)], ['Ganancia', usd(o.gan)]);
+  else {
+    lin.push(['Monto', usd(o.usd)], ['Tasa', tasa(o.tasa)], ['Total', bsf(o.bs)], ['Banco', o.banco || '—']);
+    if (o.tipo === 'Venta' && r.costo && !o.anulado) { const g = r.ganancia(o); lin.push(['Tasa costo', tasa(r.costo)], ['Ganancia', bsf(g) + ' · ' + pct(g / o.bs)]); }
+  }
+  if (o.nota) lin.push(['Nota', o.nota]);
+  $('detTxt').innerHTML = lin.map(([k, v]) => `<div><span>${esc(k)}:</span> ${esc(v)}</div>`).join('');
+  $('btnAnular').textContent = o.anulado ? 'Borrar' : 'Anular';
+  $('detNota').textContent = o.anulado ? 'Está anulada y no cuenta. Si la borra, desaparece de la lista.' : 'Si la anula, queda tachada en la lista y deja de contar en los cálculos.';
+  $('dlgDet').showModal();
+});
+$('btnAnular').addEventListener('click', () => {
+  const b = $('btnAnular');
+  if (b.textContent === 'Anular' || b.textContent === 'Borrar') { b.dataset.que = b.textContent; b.textContent = 'Toque otra vez para ' + b.textContent.toLowerCase(); return; }
+  if (b.dataset.que === 'Borrar') datos.ops = datos.ops.filter(x => x !== opDet);
+  else opDet.anulado = true;
+  guardarDatos();
+  $('dlgDet').close();
+  pintar();
+});
+$('cerrarDet').addEventListener('click', () => $('dlgDet').close());
+
+// Cuentas
+let ctaActual = null;
+function abrirCta(c) {
+  ctaActual = c;
+  const G = GRUPOS.find(x => x.g === c.grupo);
+  $('ctaTitulo').textContent = c.nombre ? c.nombre : G.nuevo;
+  $('ctaNombre').value = c.nombre || ''; $('ctaNombre').placeholder = G.ej;
+  $('ctaLblSaldo').textContent = c.grupo === 'Bolívares' ? 'Saldo (Bs)' : c.grupo === 'Banco' ? 'Saldo (USD)' : 'Monto (USD)';
+  $('ctaSaldo').value = c.nombre ? String(c.saldo) : '';
+  $('ctaNota').value = c.nota || '';
+  $('borrarCta').hidden = !c.nombre;
+  $('borrarCta').textContent = 'Borrar';
+  $('avisoCta').textContent = '';
+  $('dlgCta').showModal();
+}
+$('grupos').addEventListener('click', e => {
+  const a = e.target.closest('[data-grupo]');
+  if (a) return abrirCta({ id: nuevoId(), grupo: a.dataset.grupo, nombre: '', saldo: 0, nota: '' });
+  const b = e.target.closest('[data-cta]');
+  if (b) { const c = datos.cuentas.find(x => x.id === b.dataset.cta); if (c) abrirCta(c); }
+});
+$('fCta').addEventListener('submit', e => {
+  e.preventDefault();
+  const nombre = $('ctaNombre').value.trim(), saldo = num($('ctaSaldo').value);
+  if (!nombre) { $('avisoCta').textContent = 'Escriba el nombre.'; return; }
+  if (isNaN(saldo)) { $('avisoCta').textContent = 'Escriba el saldo.'; return; }
+  const nueva = { ...ctaActual, nombre, saldo: red(saldo, 2), nota: $('ctaNota').value.trim(), actualizado: new Date().toISOString() };
+  datos.cuentas = datos.cuentas.filter(x => x.id !== nueva.id).concat(nueva);
+  guardarDatos();
+  $('dlgCta').close();
+  pintar();
+});
+$('borrarCta').addEventListener('click', () => {
+  if ($('borrarCta').textContent === 'Borrar') { $('borrarCta').textContent = '¿Seguro? Toque otra vez'; return; }
+  datos.cuentas = datos.cuentas.filter(x => x.id !== ctaActual.id);
+  guardarDatos();
+  $('dlgCta').close();
+  pintar();
+});
+$('cancelarCta').addEventListener('click', () => $('dlgCta').close());
+
+// Ajustes: bancos, copia de seguridad y borrar todo
+function abrirAjustes() {
+  $('aBancos').value = datos.bancos.join('\n');
+  $('aResumen').textContent = datos.ops.length + ' operaciones y ' + datos.cuentas.length + ' cuentas guardadas en este teléfono.';
+  $('avisoAjustes').textContent = '';
+  $('borrarTodo').textContent = 'Borrar todo y empezar de cero';
+  $('dlgAjustes').showModal();
+}
+$('ajustes').addEventListener('click', abrirAjustes);
+$('cerrarAjustes').addEventListener('click', () => $('dlgAjustes').close());
+$('fAjustes').addEventListener('submit', e => {
+  e.preventDefault();
+  datos.bancos = [...new Set($('aBancos').value.split('\n').map(s => s.trim()).filter(Boolean))];
+  guardarDatos();
+  $('dlgAjustes').close();
+  pintar();
+});
+$('exportar').addEventListener('click', () => {
+  const nombre = 'divisas-copia-' + ahoraLocal().slice(0, 10) + '.json';
+  const blob = new Blob([JSON.stringify(datos, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  $('avisoAjustes').textContent = 'Se descargó «' + nombre + '». Guárdela en Archivos, iCloud o mándesela por WhatsApp.';
+});
+$('importar').addEventListener('click', () => $('archivo').click());
+$('archivo').addEventListener('change', async () => {
+  const f = $('archivo').files[0]; $('archivo').value = '';
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.ops) || !Array.isArray(d.cuentas)) throw new Error();
+    if (!confirm('Esto reemplaza lo que hay en este teléfono por la copia (' + d.ops.length + ' operaciones, ' + d.cuentas.length + ' cuentas). ¿Seguir?')) return;
+    datos = { ...vacio(), ...d };
+    guardarDatos();
+    $('dlgAjustes').close();
+    mes = mesDe(ahoraLocal()); vista = 'ops'; pintar();
+  } catch (e) { $('avisoAjustes').textContent = 'Ese archivo no es una copia de Divisas.'; }
+});
+$('borrarTodo').addEventListener('click', () => {
+  const b = $('borrarTodo');
+  if (b.textContent !== 'Toque otra vez para borrar todo') { b.textContent = 'Toque otra vez para borrar todo'; return; }
+  datos = vacio();
+  guardarDatos();
+  $('dlgAjustes').close();
+  mes = mesDe(ahoraLocal()); vista = 'ops'; pintar();
+});
+
+document.querySelectorAll('[data-nueva]').forEach(b => b.addEventListener('click', () => abrirOp(b.dataset.nueva)));
+$('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; vista = b.dataset.v; pintar(); scrollTo(0, 0); });
+$('mesAnt').addEventListener('click', () => { mes = mesMas(mes, -1); mostrar = 60; pintar(); });
+$('mesSig').addEventListener('click', () => { mes = mesMas(mes, 1); mostrar = 60; pintar(); });
+// Si la app se abre en otra pestaña, toma los cambios.
+addEventListener('storage', e => { if (e.key === CLAVE) { datos = leerDatos(); pintar(); } });
+
+pintar();
+// Pide al navegador que no borre los datos por falta de espacio.
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+</script>
+</body>
+</html>
