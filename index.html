@@ -999,7 +999,7 @@ function notaPago() {
     t = paga ? `${o} le pagó ${m} a ${c.nombre} por usted: baja lo que usted le debe a ${c.nombre} y lo que ${o} le debe a usted.`
              : `${c.nombre} le pagó ${m} directo a ${o}: baja lo que ${c.nombre} le debe y lo que usted le debe a ${o}.`;
   }
-  $('pagoNota').textContent = t ? t + ' El disponible no cambia.' : '';
+  $('pagoNota').textContent = t ? t + ' El capital no cambia.' : '';
   $('avisoCta').textContent = '';
 }
 ['pagoDestino', 'pagoMonto', 'pagoNueva'].forEach(id => $(id).addEventListener('input', notaPago));
