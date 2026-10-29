@@ -341,7 +341,7 @@ textarea{min-height:56px;resize:vertical}
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre: las ventas y compras mueven el banco y crean las cuentas por cobrar y por pagar.</p>
+      <p class="nota">Versión del 29 de octubre (2): las ventas y compras mueven el banco y crean las cuentas por cobrar y por pagar.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -898,6 +898,18 @@ $('mesSig').addEventListener('click', () => { mes = mesMas(mes, 1); mostrar = 60
 // Si la app se abre en otra pestaña, toma los cambios.
 addEventListener('storage', e => { if (e.key === CLAVE) { datos = leerDatos(); pintar(); } });
 
+// Las compras y ventas anotadas antes de que la app moviera bancos y cuentas
+// no tienen movimientos: se les agregan una sola vez.
+if (!datos.cuentasAuto) {
+  const conMov = new Set(datos.cuentas.flatMap(c => (c.movs || []).map(m => m.opId)));
+  datos.ops.filter(o => !o.anulado && grupoDe(o.tipo) && !conMov.has(o.id)).forEach(o => {
+    o.cuenta = grupoDe(o.tipo);
+    mover(o.cuenta, o.cliente, o.usd, o.tipo + ' a tasa ' + tasa(o.tasa), o.id, o.fecha);
+    if (o.banco) mover('Bolívares', o.banco, o.tipo === 'Venta' ? o.bs : -o.bs, (o.tipo === 'Venta' ? 'Venta a ' : 'Compra a ') + o.cliente, o.id, o.fecha);
+  });
+  datos.cuentasAuto = true;
+  guardarDatos();
+}
 pintar();
 // Pide al navegador que no borre los datos por falta de espacio.
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
