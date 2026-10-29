@@ -217,6 +217,7 @@ textarea{min-height:56px;resize:vertical}
         <tr><td>Total USD comprados</td><td id="cUsd"></td></tr>
         <tr><td>Tasa promedio de compra</td><td id="cTasa"></td></tr>
         <tr><td>Bolívares invertidos</td><td id="cBs"></td></tr>
+        <tr><td>Comisiones entre bancos</td><td id="cCom"></td></tr>
         <tr><td>N° de compras</td><td id="cN"></td></tr>
       </table>
     </section>
@@ -273,6 +274,10 @@ textarea{min-height:56px;resize:vertical}
       <input id="bs" class="num" inputmode="decimal" autocomplete="off" placeholder="0.00">
       <label id="lblBancos">Banco</label>
       <div class="opciones" id="bancos"></div>
+      <div id="bloqueDestino" hidden>
+        <label for="bancoDestino" id="lblDestino">¿A qué banco le transfiere?</label>
+        <select id="bancoDestino"></select>
+      </div>
     </div>
     <div id="bloqueUsdt" hidden>
       <div class="dos">
@@ -369,14 +374,16 @@ textarea{min-height:56px;resize:vertical}
     <label for="aBancos">Sus bancos en bolívares (uno por línea)</label>
     <textarea id="aBancos" rows="5"></textarea>
     <p class="nota">Aparecen como botones al anotar una compra o una venta.</p>
+    <label for="aComision">Comisión por transferir a otro banco (%)</label>
+    <input id="aComision" class="num" inputmode="decimal" autocomplete="off" placeholder="0.3">
     <div class="fila">
       <button class="btn" type="button" id="cerrarAjustes">Cerrar</button>
-      <button class="btn prin" type="submit" value="ok">Guardar bancos</button>
+      <button class="btn prin" type="submit" value="ok">Guardar</button>
     </div>
     <div class="ajustes-bloque">
       <label>Copia de seguridad</label>
       <p class="nota" id="aResumen"></p>
-      <p class="nota">Versión del 29 de octubre (8): balance con Activo = Pasivo + Capital.</p>
+      <p class="nota">Versión del 29 de octubre (9): comisión al transferir a otro banco: balance con Activo = Pasivo + Capital.</p>
       <p class="nota">Los datos viven solo en este teléfono. Si se borra el navegador o cambia de teléfono, se pierden. Descargue una copia de vez en cuando y guárdela.</p>
       <button class="btn" type="button" id="exportar">Descargar copia</button>
       <button class="btn" type="button" id="importar">Cargar una copia</button>
@@ -401,6 +408,8 @@ const GRUPOS = [
   { g: 'Por cobrar', titulo: 'Cuentas por cobrar', nuevo: 'Nueva cuenta por cobrar', ej: 'Quién le debe' },
   { g: 'Por pagar', titulo: 'Cuentas por pagar', nuevo: 'Nueva cuenta por pagar', ej: 'A quién le debe' }
 ];
+// Bancos de Venezuela a los que se puede transferir.
+const BANCOS_VE = ['Banesco', 'Mercantil', 'Venezuela', 'Provincial', 'BNC', 'Bancamiga', 'Banplus', 'BFC Fondo Común', 'Bancaribe', 'Exterior', 'Tesoro', 'Bicentenario', 'Venezolano de Crédito', 'Plaza', 'Sofitasa', 'Caroní', 'Activo', '100% Banco', 'Del Sur', 'Bancrecer', 'Mi Banco', 'Banfanb'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const CLAVE = 'divisas.datos';
 
@@ -412,7 +421,7 @@ const tasa = n => n ? f2.format(n) : '—';
 const pct = n => (n * 100).toFixed(2) + '%';
 
 // Todo se guarda en este teléfono: operaciones, cuentas, clientes y bancos.
-function vacio() { return { version: 1, ops: [], cuentas: [], capital: [], clientes: [], bancos: BANCOS_INICIALES.slice(), banco: BANCOS_INICIALES[0], cuentasAuto: true, capitalAuto: true }; }
+function vacio() { return { version: 1, ops: [], cuentas: [], capital: [], clientes: [], bancos: BANCOS_INICIALES.slice(), banco: BANCOS_INICIALES[0], cuentasAuto: true, capitalAuto: true, comision: 0.3 }; }
 function leerDatos() {
   try { const t = localStorage.getItem(CLAVE); if (t) return { ...vacio(), cuentasAuto: false, capitalAuto: false, ...JSON.parse(t) }; } catch (e) {}
   return vacio();
@@ -501,9 +510,9 @@ let verSaldadas = false;
 // cada venta gana (tasa de venta − tasa costo) × monto.
 function resumen(m) {
   const ops = operacionesDe(m).filter(o => !o.anulado);
-  const r = { ops, c: { usd: 0, bs: 0, n: 0 }, v: { usd: 0, bs: 0, n: 0 }, u: { venta: 0, gan: 0, porCliente: {} }, ganBs: 0, porCliente: {} };
+  const r = { ops, c: { usd: 0, bs: 0, com: 0, n: 0 }, v: { usd: 0, bs: 0, n: 0 }, u: { venta: 0, gan: 0, porCliente: {} }, ganBs: 0, porCliente: {} };
   ops.forEach(o => {
-    if (o.tipo === 'Compra') { r.c.usd += o.usd; r.c.bs += o.bs; r.c.n++; }
+    if (o.tipo === 'Compra') { r.c.usd += o.usd; r.c.bs += o.bs + (o.comision || 0); r.c.com += o.comision || 0; r.c.n++; }
     else if (o.tipo === 'Venta') { r.v.usd += o.usd; r.v.bs += o.bs; r.v.n++; }
     else if (o.tipo === 'USDT/EF') {
       r.u.venta += o.usd; r.u.gan += o.gan;
@@ -599,7 +608,7 @@ function pintarRes() {
   $('rInv').textContent = usd(r.inv);
   $('rSpread').textContent = tasa(r.spread);
   $('rMargen').textContent = pct(r.margen);
-  $('cUsd').textContent = usd(r.c.usd); $('cTasa').textContent = tasa(r.costo); $('cBs').textContent = bsf(r.c.bs); $('cN').textContent = r.c.n;
+  $('cUsd').textContent = usd(r.c.usd); $('cTasa').textContent = tasa(r.costo); $('cBs').textContent = bsf(r.c.bs); $('cCom').textContent = bsf(r.c.com); $('cN').textContent = r.c.n;
   $('vUsd').textContent = usd(r.v.usd); $('vTasa').textContent = tasa(r.tventa); $('vBs').textContent = bsf(r.v.bs); $('vN').textContent = r.v.n;
   const max = Math.max(1, r.c.usd, r.v.usd);
   $('rBarras').innerHTML =
@@ -645,7 +654,7 @@ function esperado() {
   let ru = 0, rb = 0;
   datos.ops.filter(o => !o.anulado).forEach(o => {
     if (o.tipo === 'Venta') { rb += o.bs; ru -= o.usd; }
-    else if (o.tipo === 'Compra') { rb -= o.bs; ru += o.usd; }
+    else if (o.tipo === 'Compra') { rb -= o.bs + (o.comision || 0); ru += o.usd; }
     else if (o.tipo === 'USDT/EF') ru += o.gan;
   });
   return { ap, ru, rb };
@@ -738,6 +747,7 @@ function abrirOp(tipo) {
   $('clientes').innerHTML = datos.clientes.map(n => `<option value="${esc(n)}">`).join('');
   // En una compra se elige el banco cada vez; en una venta se propone el último usado.
   bancoOp = tipo === 'Compra' ? '' : (bancosForm().indexOf(datos.banco) >= 0 ? datos.banco : bancosForm()[0] || '');
+  destinoOp = '';
   pintarForm();
   $('dlgOp').showModal();
   setTimeout(() => $('cliente').focus(), 50);
@@ -760,6 +770,8 @@ function pintarForm() {
   $('bloqueUsdt').hidden = tipoOp !== 'USDT/EF';
   llenarLiquida();
   $('lblBancos').textContent = tipoOp === 'Venta' ? 'Banco donde entran los bolívares' : '¿De qué banco salen los bolívares?';
+  $('bloqueDestino').hidden = tipoOp !== 'Compra';
+  if (tipoOp === 'Compra') llenarDestino();
   calcularForm();
 }
 // ¿Qué pasa con los dólares? En una venta: quedan por pagar o ya salieron de una cuenta.
@@ -814,17 +826,34 @@ function calcularForm() {
     } else c.textContent = 'Todavía no hay compras este mes para calcular la ganancia.';
     $('avisoOp').textContent = '';
   } else {
-    const nuevo = (r.c.bs + u.bs) / (r.c.usd + u.usd);
-    c.innerHTML = r.c.usd ? `Tasa costo del mes pasa de ${tasa(r.costo)} a <b class="num-f">${tasa(nuevo)}</b>` : `Tasa costo del mes: <b class="num-f">${tasa(nuevo)}</b>`;
+    const com = comisionDe(u.bs);
+    const nuevo = (r.c.bs + u.bs + com) / (r.c.usd + u.usd);
+    c.innerHTML = (com ? `Comisión ${bancoOp} → ${esc(destinoOp)} (${datos.comision ?? 0.3}%): <b class="num-f">${bsf(com)}</b>. Salen en total <b class="num-f">${bsf(u.bs + com)}</b> de ${esc(bancoOp)}.<br>`
+      : destinoOp && bancoOp ? 'Mismo banco: sin comisión.<br>' : '') +
+      (r.c.usd ? `Tasa costo del mes pasa de ${tasa(r.costo)} a <b class="num-f">${tasa(nuevo)}</b>` : `Tasa costo del mes: <b class="num-f">${tasa(nuevo)}</b>`);
     $('avisoOp').textContent = faltaBs(u.bs);
   }
 }
 // Para comprar hay que tener los bolívares en el banco; vender no lo requiere.
 function faltaBs(monto) {
   if (tipoOp !== 'Compra' || !bancoOp) return '';
-  const hay = saldoBs(bancoOp);
-  return monto > hay + 0.005 ? 'En ' + bancoOp + ' solo hay ' + bsf(hay) + ' y la compra necesita ' + bsf(monto) + '. Elija otro banco o anote primero los bolívares en Cuentas.' : '';
+  const hay = saldoBs(bancoOp), total = monto + comisionDe(monto);
+  return total > hay + 0.005 ? 'En ' + bancoOp + ' solo hay ' + bsf(hay) + ' y la compra necesita ' + bsf(total) + (total > monto ? ' con la comisión' : '') + '. Elija otro banco o anote primero los bolívares en Cuentas.' : '';
 }
+// Transferir a otro banco cobra comisión (por defecto 0,3 %) que sale del banco de origen.
+let destinoOp = '';
+const mismoBanco = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+function comisionDe(monto) {
+  if (tipoOp !== 'Compra' || !bancoOp || !destinoOp || mismoBanco(bancoOp, destinoOp)) return 0;
+  return red(monto * (datos.comision ?? 0.3) / 100, 2);
+}
+function llenarDestino() {
+  const lista = [...new Set(bancosForm().concat(BANCOS_VE).map(x => x.trim()))];
+  $('bancoDestino').innerHTML = '<option value="">Elija el banco de ' + esc($('cliente').value.trim() || 'la persona') + '…</option>' +
+    lista.map(b => `<option value="${esc(b)}">${esc(b)}${bancoOp && mismoBanco(b, bancoOp) ? ' · mismo banco, sin comisión' : ''}</option>`).join('');
+  $('bancoDestino').value = destinoOp;
+}
+$('bancoDestino').addEventListener('input', () => { destinoOp = $('bancoDestino').value; calcularForm(); });
 function valoresForm() {
   const t = num($('tasa').value);
   if (!(t > 0)) return null;
@@ -835,6 +864,7 @@ function valoresForm() {
 
 $('tipos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; tipoOp = b.dataset.t; if (tipoOp === 'Compra') bancoOp = ''; pintarForm(); });
 $('bancos').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; bancoOp = b.dataset.b; pintarForm(); });
+$('cliente').addEventListener('change', () => { if (tipoOp === 'Compra') llenarDestino(); });
 $('usd').addEventListener('input', () => { ultimoEditado = 'usd'; calcularForm(); });
 $('bs').addEventListener('input', () => { ultimoEditado = 'bs'; calcularForm(); });
 ['tasa', 'uMonto', 'uGan'].forEach(id => $(id).addEventListener('input', calcularForm));
@@ -862,9 +892,11 @@ $('fOp').addEventListener('submit', e => {
     if (!u) return aviso('Escriba el monto en dólares o el total en bolívares.');
     if (!bancosForm().length) return aviso('Agregue primero un banco en bolívares en Cuentas → Bolívares.');
     if (!bancoOp) return aviso(tipoOp === 'Compra' ? 'Elija de qué banco salen los bolívares.' : 'Elija el banco donde entran los bolívares.');
+    if (tipoOp === 'Compra' && !destinoOp) return aviso('Elija a qué banco le transfiere a ' + cliente + '.');
     const falta = faltaBs(u.bs);
     if (falta) return aviso(falta);
     op = { ...op, ...u, banco: bancoOp, gan: 0 };
+    if (tipoOp === 'Compra') { op.bancoDestino = destinoOp; op.comision = comisionDe(u.bs); }
     if (tipoOp === 'Venta') datos.banco = bancoOp;
   }
   // La cuenta en dólares que se mueve si los dólares ya se entregaron o recibieron.
@@ -889,6 +921,7 @@ $('fOp').addEventListener('submit', e => {
   }
   // Al vender entran los bolívares al banco; al comprar salen de él.
   if (op.banco) mover('Bolívares', op.banco, tipoOp === 'Venta' ? op.bs : -op.bs, (tipoOp === 'Venta' ? 'Venta a ' : 'Compra a ') + cliente, op.id, fecha);
+  if (op.comision) mover('Bolívares', op.banco, -op.comision, 'Comisión transferencia a ' + op.bancoDestino, op.id, fecha);
   datos.ops.push(op);
   // El cliente nuevo queda en la lista para que se autocomplete igual la próxima vez.
   if (!datos.clientes.some(n => n.toLowerCase() === cliente.toLowerCase())) datos.clientes = datos.clientes.concat(cliente).sort((a, b) => a.localeCompare(b, 'es'));
@@ -911,6 +944,8 @@ $('lista').addEventListener('click', e => {
   if (o.tipo === 'USDT/EF') lin.push(['Venta', usd(o.usd)], ['Ganancia', usd(o.gan)]);
   else {
     lin.push(['Monto', usd(o.usd)], ['Tasa', tasa(o.tasa)], ['Total', bsf(o.bs)], ['Banco', o.banco ? o.banco + (o.anulado ? '' : (o.tipo === 'Venta' ? ' (entraron ' : ' (salieron ') + bsf(o.bs) + ')') : '—']);
+    if (o.comision) lin.push(['Comisión', bsf(o.comision) + ' (transferencia a ' + o.bancoDestino + ')']);
+    else if (o.bancoDestino) lin.push(['Transferido a', o.bancoDestino + ' (mismo banco)']);
     if (o.tipo === 'Venta' && r.costo && !o.anulado) { const g = r.ganancia(o); lin.push(['Tasa costo', tasa(r.costo)], ['Ganancia', bsf(g) + ' · ' + pct(g / o.bs)]); }
   }
   if (o.cuenta && !o.anulado) lin.push(['Cuenta', o.cuenta + ' · ' + o.cliente]);
@@ -1136,6 +1171,7 @@ $('dResumen').addEventListener('click', e => {
 // Ajustes: bancos, copia de seguridad y borrar todo
 function abrirAjustes() {
   $('aBancos').value = datos.bancos.join('\n');
+  $('aComision').value = String(datos.comision ?? 0.3);
   $('aResumen').textContent = datos.ops.length + ' operaciones y ' + datos.cuentas.length + ' cuentas guardadas en este teléfono.';
   $('avisoAjustes').textContent = '';
   $('borrarTodo').textContent = 'Borrar todo, incluidos los nombres';
@@ -1147,6 +1183,8 @@ $('cerrarAjustes').addEventListener('click', () => $('dlgAjustes').close());
 $('fAjustes').addEventListener('submit', e => {
   e.preventDefault();
   datos.bancos = [...new Set($('aBancos').value.split('\n').map(s => s.trim()).filter(Boolean))];
+  const pc = num($('aComision').value);
+  if (!isNaN(pc) && pc >= 0 && pc < 10) datos.comision = pc;
   guardarDatos();
   $('dlgAjustes').close();
   pintar();
